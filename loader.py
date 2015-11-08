@@ -46,15 +46,8 @@ def loader(data):
     # Initialize return dictionary
     keyLen = len(keys)
     numPts = len(content)
-    x = {}
-    #numPts = 2
-    #keyLen = 2
     x = defaultdict(list)
-    #for key in keys:
-    #    x[key] = np.empty(numPts)
-    #    print np.shape(x[key])
-    
-    print x
+
     for n in range(numPts-1):
         line = content[n].split('\t')
         if len(line) == keyLen:
@@ -97,13 +90,6 @@ def convert_times(time):
         t[k] = deltaT
         
     return t
-
-def string_to_tag(data):
-    """
-    Convert strings to tag id numbers
-    """
-    
-    return 0
 
 def check_final_answer(stepName):
     """
