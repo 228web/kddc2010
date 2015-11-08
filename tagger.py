@@ -41,7 +41,7 @@ def string_tags(KCList):
         
     return tags
     
-def tags_to_array(KCList, tagList):
+def tags_to_array(KCList, oppList, tagList):
     """
     Takes the list of 'KC(Default)' string tags and master list of all tags and
     creates sparse array representing present tags.
@@ -49,7 +49,9 @@ def tags_to_array(KCList, tagList):
     Inputs
     ------
     KCList : list
-        list of a ll 'KC(Default)' string tags
+        list of all 'KC(Default)' string tags
+    oppList : list
+        list of all 'Opportunity' int tags
     tagList : list
         list of string tags without duplicates and split on '~~'
         
@@ -61,21 +63,31 @@ def tags_to_array(KCList, tagList):
     KCLen = len(KCList)
     tagLen = len(tagList)
     tagArray = np.zeros([KCLen,tagLen])
+    oppArray = np.zeros([KCLen,tagLen])
     index = 0
     
     for k in range(KCLen):
         # split on '~~'
         tagsK = KCList[k].split('~~')
+        oppK = oppList[k].split('~~')
         
         #check if a single string first
         if isinstance(tagsK, basestring):
             # check which index tag is in
             index = tagList.index(tagsK)
             tagArray[k,index] = 1
+            if oppK == '':
+                oppArray[k,index] = -1
+            else:
+                oppArray[k,index] = oppK
         else:
             for l in range(len(tagsK)):
                 index = tagList.index(tagsK[l])
                 tagArray[k,index] = 1
+                if oppK[l] == '':
+                    oppArray[k,index] = -1
+                else:
+                    oppArray[k,index] = oppK[l]
         
-    return tagArray
+    return tagArray, oppArray
     
