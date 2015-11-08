@@ -1,4 +1,5 @@
 DONE-Convert concepts to an integer ID, dictionary lookup
-DONE-Convert units, problems to an integer ID, dictionary lookup
+DONE-Convert problems to an integer ID, dictionary lookup
+DONE-Convert units to an integer ID, dictionary lookup
 DONE -Convert student IDs to an integer ID, dictionary lookup
 -Write a function to return a given row as a list
