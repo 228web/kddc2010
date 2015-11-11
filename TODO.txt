@@ -2,13 +2,17 @@ DONE-Convert concepts to an integer ID, dictionary lookup
 DONE-Convert problems to an integer ID, dictionary lookup
 DONE-Convert units to an integer ID, dictionary lookup
 DONE -Convert student IDs to an integer ID, dictionary lookup
+DONE-Check if multiple skill problems have multiple opportunities associated.
+
+	NOTE: Appears to be working,but NOTE: Some entries have been intentionally removed - they are in the test set!
+-IMPORTANT: Check if opportunity and skills match up (the student indeed has seen this skill the number of times opportunity tells us.)
+
+
 -Write a function to return a given row as a list
 
 Once the following are done, we should have a decent handle on which features are important:
 -Make decision tree to see what features best predict first correct
 -HMM to learn this itself
 
--IMPORTANT: Check if opportunity and skills match up (the student indeed has seen this skill the number of times opportunity tells us.)
--RELATED: Multiple skill problems have multiple opportunities associated.
 
 -Decide whether we want to go by individual students, by skills, by unit/section/problem, etc.
