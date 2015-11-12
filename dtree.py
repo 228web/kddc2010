@@ -54,6 +54,8 @@ def entropy_calc(y,x,x_classes):
                 P_x_1 = sum(y_vals)/float(np.size(cl_inds))
                 P_x_0 = 1. - P_x_1
 
+# If we get a nan, then either P_x_1 or P_x_0 = 0, so this should be mapped to 0
+# The nan_to_num function does this
                 ent = ent - P_x*np.nan_to_num(P_x_1*np.log(P_x_1) + P_x_0*np.log(P_x_0))/np.log(2)
 
     return ent
