@@ -50,7 +50,12 @@ for i in range(len(tag_master)):
 #Look up location of index in array
 #tag_master.index(SOME STRING)
 
-#Write a decision tree
+y_pred = xy_train['Correct First Attempt']
+
+#Check entropy of the data
+ent = entropy_calc(map(int,y_pred),[0],[])
+
+#ent = entropy_calc(map(int,y_pred),x_prob,all_dicts[1].keys())
 
 # Calculate step start time from FIRST student transaction
 # Calculate the above, but separate by skill?
