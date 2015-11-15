@@ -49,7 +49,7 @@ def generate_hmm_dat(n,p):
             
     return x,y
         
-def general_hmm_dat(n,start_p, trans_p, emit_p):
+def general_hmm_dat(n,startP, transP, emitP):
     """
     Loaded vs. unloaded die example
     
@@ -57,11 +57,11 @@ def general_hmm_dat(n,start_p, trans_p, emit_p):
     ------
     n : int
         number of points to make
-    start_p : ndarray
+    startP : ndarray
         kx1 probabilities for starting in any hidden model state
-    trans_p : ndarray
+    transP : ndarray
         kxk transition probabilities of hidden model, p_ij = P(i->j)
-    emit_p : ndarray
+    emitP : ndarray
         kxd probability of emitting value from given hidden model state, k
         
     Returns
@@ -73,18 +73,18 @@ def general_hmm_dat(n,start_p, trans_p, emit_p):
     """
     x = np.ones(n)
     y = np.zeros(n)
-    kLen, dLen = np.shape(emit_p)
-    y[0] = rand.choice(kLen, p = start_p)
-    x[0] = rand.choice(dLen, p = emit_p[y[0]])
+    kLen, dLen = np.shape(emitP)
+    y[0] = rand.choice(kLen, p = startP)
+    x[0] = rand.choice(dLen, p = emitP[y[0]])
     
     for k in range(1,n):
-        y[k] = rand.choice(kLen, p = trans_p[y[k-1]])
-        x[k] = rand.choice(dLen, p = emit_p[y[k]])
+        y[k] = rand.choice(kLen, p = transP[y[k-1]])
+        x[k] = rand.choice(dLen, p = emitP[y[k]])
     
     return x,y
     
     
-def viterbi(x, start_p, trans_p, emit_p):
+def viterbi(x, startP, transP, emitP):
     """
     Dynamic programming algorithm for predicting hidden model state given the 
     observed emitted data, the transition probabilities between hidden model
@@ -94,47 +94,200 @@ def viterbi(x, start_p, trans_p, emit_p):
     ------
     x : ndarray
         nx1 observed emitted data
-    start_p : ndarray
+    startP : ndarray
         kx1 probabilities for starting in any hidden model state
-    trans_p : ndarray
+    transP : ndarray
         kxk transition probabilities of hidden model, p_ij = P(i->j)
-    emit_p : ndarray
+    emitP : ndarray
         kxd probability of emitting value from given hidden model state, k
     
     Returns
     -------
     v : ndarray
         nxk probabilites of being in given k state at each step
-    path : list
+    path : ndarray
         nx1 path of hidden model state      
     """
     xLen = len(x)
-    kLen, dLen = np.shape(emit_p)
+    kLen, dLen = np.shape(emitP)
     
     # Initialize base cases (t == 0)
     v = np.zeros([xLen,kLen])
-    v[0] = start_p[:]*emit_p[:,x[0]]
-    v2 = np.zeros([xLen,kLen])
-    v2[0] = start_p[:]*emit_p[:,x[0]]
-    # Initialize pointer
-    path = [np.argmax(start_p)]
-    
-    # Maximize V_l(i+1) = e_l(x(i+1))max_k a_kl V_k(i)
-    for k in range(1,xLen):
-        v[k] = emit_p[:,x[k]]*np.max(trans_p.T.dot(v[k-1]))
-        v2[k] = emit_p[:,x[k]]*np.max(trans_p.dot(v[k-1]))
-        path.append(np.argmax(trans_p.T.dot(v[k-1])))
+    v[0] = startP[:]*emitP[:,x[0]]
+    # Initialize path table and best path
+    pointer = np.zeros([xLen,kLen])
+    path = np.zeros(xLen)
         
+    # Maximize: V_l(i+1) = e_l(x(i+1))max_k a_kl V_k(i)
+    for k in range(1,xLen):
+        for l in range(kLen):
+            trans = transP[l]*v[k-1]
+            v[k,l] = emitP[l,x[k]]*np.max(trans)
+            pointer[k,l] = np.argmax(trans)
+          
+    # Set the final path state as max V_k
+    path[-1] = np.argmax(v[-1])
+    # Step backward along path
+    for k in range(xLen-1,0,-1):
+        path[k-1] = pointer[k,path[k]]
+        
+    return v, path
+
+def forward(x, startP, transP, emitP):
+    """
+    Dynamic programming algorithm for predicting probability of observed 
+    emitted data series, aka filtering.
     
-    return v, path, v2
+    Inputs
+    ------
+    x : ndarray
+        nx1 observed emitted data
+    startP : ndarray
+        kx1 probabilities for starting in any hidden model state
+    transP : ndarray
+        kxk transition probabilities of hidden model, p_ij = P(i->j)
+    emitP : ndarray
+        kxd probability of emitting value from given hidden model state, k
     
-def viterbi_wiki(obs, states, start_p, trans_p, emit_p):
+    Returns
+    -------
+    f : ndarray
+        forward probabilities at each series point x[k]
+    prob : float
+        probability of series of emitted data x      
+    """
+    xLen = len(x)
+    kLen, dLen = np.shape(emitP)
+    
+    # Initialize base cases (t == 0)
+    f = np.zeros([xLen,kLen])
+    f[0] = startP[:]*emitP[:,x[0]]
+        
+    # Sum: f_l(i+1) = e_l(x(i+1))Sum_k a_kl f_k(i-1)
+    for k in range(1,xLen):
+        f[k] = emitP[:,x[k]]*np.dot(transP,f[k-1])
+        
+    prob = np.sum(f[-1])
+        
+    return f, prob
+    
+def backward(x, startP, transP, emitP):
+    """
+    Dynamic programming algorithm for predicting probability of observed 
+    emitted data series, given hidden model state.
+    
+    Inputs
+    ------
+    x : ndarray
+        nx1 observed emitted data
+    startP : ndarray
+        kx1 probabilities for starting in any hidden model state
+    transP : ndarray
+        kxk transition probabilities of hidden model, p_ij = P(i->j)
+    emitP : ndarray
+        kxd probability of emitting value from given hidden model state, k
+    
+    Returns
+    -------
+    b : ndarray
+        forward probabilities at each series point x[k]
+    prob : float
+        probability of series of emitted data x 
+    """
+    xLen = len(x)
+    kLen, dLen = np.shape(emitP)
+    
+    # Initialize base cases (t == 0)
+    b = np.ones([xLen,kLen])
+        
+    # Maximize: V_l(i+1) = e_l(x(i+1))max_k a_kl V_k(i)
+    for k in range(xLen-2,-1,-1):
+        if k == 0:
+            b[k] = np.dot(startP, emitP[:,x[k+1]]*b[k+1])
+        else:
+            b[k] = np.dot(transP,emitP[:,x[k+1]]*b[k+1])
+        
+    # b_k(i) = sum_l (a_0l*e_l(x_1)*b_l(1)
+    prob = np.sum(startP*emitP[:,x[0]]*b[0,:])
+        
+    return b, prob
+    
+def frwd_bkwd(x, startP, transP, emitP):
+    """
+    Computes posterior probability of hidden state given observation data,
+    aka smoothing.
+    
+    Inputs
+    ------
+    x : ndarray
+        nx1 observed emitted data
+    startP : ndarray
+        kx1 probabilities for starting in any hidden model state
+    transP : ndarray
+        kxk transition probabilities of hidden model, p_ij = P(i->j)
+    emitP : ndarray
+        kxd probability of emitting value from given hidden model state, k
+    
+    Returns
+    -------
+    f : ndarray
+        forward probabilities at each series point x[k]
+    probF : float
+        probability of series of emitted data x
+    b : ndarray
+        backward probabilities at each series point x[k]
+    probB : float
+        probability of series of emitted data x
+    posterior : ndarray
+        posterior probability P(pi_i = k|x)    
+    """
+    
+    xLen = len(x)
+    kLen, dLen = np.shape(emitP)
+    f, probF = forward(x, startP, transP, emitP)
+    b, probB = backward(x, startP, transP, emitP)
+    posterior = np.zeros([xLen, kLen])
+    for k in range(xLen):
+        posterior[k] = f[k]*b[k]/probF
+        
+    return f, b, probF, probB, posterior
+    
+def baum_welch(x, startP, transP, emitP, delta, maxIt = 100):
+    #Wrong!
+    counter = 0
+    converged = False
+    xLen = len(x)
+    kLen = len(startP)
+    transOut = np.zeros(kLen)
+    transIJ = np.zeros([kLen,xLen])
+    while(not converged and counter < maxIt):
+        converged = True
+        counter += 1
+        f, b, probF, probB, posterior = frwd_bkwd(x, startP, transP, emitP)
+        transOut = np.sum(posterior[:-1],1)
+        transPOld = np.copy(transP)
+        
+        emitPOld = np.copy(emitP)
+        for k in range(kLen):
+            emitInd = np.zeros([kLen,xLen])
+            transIJ[k] = f[k]*b*transPOld[k]*emitP[:,x[k]]/probF
+            transP[k] = np.sum(transIJ)/np.sum(transOut)
+            if abs(transP[k]-transPOld[k])>delta:
+                converged = converged and False
+            for l in range(xLen):
+                if x[l] == k:
+                    emitInd += 1
+            emitP[k] = np.sum(posterior*emitInd)/np.sum(posterior,1)
+        
+    return transP, emitP
+    
+def viterbi_wiki(obs, states, startP, transP, emitP):
     V = [{}]
     path = {}
     
     # Initialize base cases (t == 0)
     for y in states:
-        V[0][y] = start_p[y] * emit_p[y][obs[0]]
+        V[0][y] = startP[y] * emitP[y][obs[0]]
         path[y] = [y]
     
     # Run Viterbi for t > 0
@@ -143,8 +296,8 @@ def viterbi_wiki(obs, states, start_p, trans_p, emit_p):
         newpath = {}
 
         for y in states:
-            (prob, state) = max((V[t-1][y0] * trans_p[y0][y] * 
-                                emit_p[y][obs[t]], y0) for y0 in states)
+            (prob, state) = max((V[t-1][y0] * transP[y0][y] * 
+                                emitP[y][obs[t]], y0) for y0 in states)
             V[t][y] = prob
             newpath[y] = path[state] + [y]
 
@@ -158,39 +311,6 @@ def viterbi_wiki(obs, states, start_p, trans_p, emit_p):
     (prob, state) = max((V[n][y], y) for y in states)
     return V,path[state]
     #return (prob, path[state])
-    
-def viterbi_SE(observations,start_p,trans_p,emit_p):
-    """Return the best path, given an HMM model and a sequence of observations"""
-    # A - initialise stuff
-    nSamples = len(observations)
-    nStates = trans_p.shape[0] # number of states
-    c = np.zeros(nSamples) #scale factors (necessary to prevent underflow)
-    viterbi = np.zeros((nStates,nSamples)) # initialise viterbi table
-    psi = np.zeros((nStates,nSamples)) # initialise the best path table
-    best_path = np.zeros(nSamples); # this will be your output
-
-    # B- appoint initial values for viterbi and best path (bp) tables - Eq (32a-32b)
-    viterbi[:,0] = start_p.T * emit_p[:,observations[0]]
-    c[0] = 1.0/np.sum(viterbi[:,0])
-    #viterbi[:,0] = c[0] * viterbi[:,0] # apply the scaling factor
-    psi[0] = 0;
-
-    # C- Do the iterations for viterbi and psi for time>0 until T
-    for t in range(1,nSamples): # loop through time
-        for s in range (0,nStates): # loop through the states @(t-1)
-            trans = viterbi[:,t-1] * trans_p[:,s]
-            psi[s,t], viterbi[s,t] = max(enumerate(trans), key=operator.itemgetter(1))
-            viterbi[s,t] = viterbi[s,t]*emit_p[s,observations[t]]
-
-        c[t] = 1.0/np.sum(viterbi[:,t]) # scaling factor
-        #viterbi[:,t] = c[t] * viterbi[:,t]
-
-    # D - Back-tracking
-    best_path[nSamples-1] =  viterbi[:,nSamples-1].argmax() # last state
-    for t in range(nSamples-1,0,-1): # states of (last-1)th to 0th time step
-        best_path[t-1] = psi[best_path[t],t]
-
-    return best_path, viterbi
     
 def fwd_bkw_wiki(x, states, a_0, a, e, end_st):
     L = len(x)
