@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+import numpy as np
 
 def entropy_calc(y,x,x_classes):
     """

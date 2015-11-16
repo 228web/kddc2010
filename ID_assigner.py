@@ -1,4 +1,6 @@
 #!/usr/bin/python
+import numpy as np
+from collections import defaultdict
 
 def ID_assigner(raw_IDs):
     """
