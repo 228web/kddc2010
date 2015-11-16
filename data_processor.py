@@ -8,6 +8,8 @@ import dtree as dt
 
 [xy_keys,xy_train] = ld.loader(ld.trainDat)
 
+nsize = len(xy_train['Anon Student Id'])
+
 time_strings = ['Step Start Time','First Transaction Time','Correct Transaction Time','Step End Time']
 
 for i in range(4):
@@ -42,26 +44,61 @@ tag_master = tg.string_tags(xy_train['KC(Default)'])
 
 #Look up location of index in array
 #tag_master.index(SOME STRING)
+int_s = ['Correct First Attempt','Incorrects','Hints','Corrects']
+
+for i in range(len(int_s)):
+    xy_train[int_s[i]] = map(int,xy_train[int_s[i]])
+
 
 y_pred = xy_train['Correct First Attempt']
 
 #Check entropy of the data
-ent = dt.entropy_calc(map(int,y_pred),[0],[])
+ent = dt.entropy_calc(y_pred,[0],[])
 
-def step_start_normalize(stud_IDs,step_start_times):
+def step_normalize(stud_IDs,stud_dict,step_start_time,first_trans_time,corr_trans_time,step_end_time):
 # Normalizes the step start time by student's first transation time
-    sst_T = np.copy(step_start_times)
-    for stud in stud_IDs:
-        rel_steps = [step_start_times[i] for i in np.where(stud_IDs == stud)]
-#        print(rel_steps[0])
+    aa = np.copy(step_start_time)
+    bb = np.copy(first_trans_time)
+    dd = np.copy(step_end_time)
+    cc = np.copy(corr_trans_time)
+    for stud in stud_dict:
+        print('Processing student ' + str(stud))
+        rel_steps = [step_start_time[i] for i in np.where(stud_IDs == stud)][0]
+        rel_ind = np.where(stud_IDs == stud)[0]
 
 # In case this array isn't sorted...
-        rel_steps_ind_sort = (np.argsort(rel_steps)[0])
+        rel_steps_ind_sort = np.argsort(rel_steps)
+        fnz = [i for i in rel_steps if i > 0]
+        zmin =  np.where(rel_steps == min(fnz))[0]
 
-        for i in range(len(rel_steps_ind_sort)):
-            step_start_times[rel_steps_ind_sort[i]] = step_start_times[rel_steps_ind_sort[i]] - step_start_times[rel_steps_ind_sort[0]]
+        ftime = rel_steps[zmin] - 1
 
-    return step_start_times
 
+        sst = step_start_time[rel_ind]
+        ftt = first_trans_time[rel_ind]
+        ctt = corr_trans_time[rel_ind]
+        se = step_end_time[rel_ind]
+
+#        print np.where(ctt > 0.0, 9, 11)
+        print ctt - ftime
+
+        aa[rel_ind] = np.where(sst > 0.0,sst - ftime,0.0)
+        bb[rel_ind] = np.where(ftt > 0.0,ftt - ftime,0.0)
+        cc[rel_ind] = np.where(ctt > 0.0,ctt - ftime,0.0)
+        dd[rel_ind] = np.where(se  > 0.0,se  - ftime,0.0)
+
+        print cc[rel_ind[:10]]
+
+    return aa,bb,cc,dd
+
+[aa,bb,cc,dd] = step_normalize(xy_train['Anon Student Id'],all_dicts[0].keys()[1:],xy_train['Step Start Time'],xy_train['First Transaction Time'],xy_train['Correct Transaction Time'],xy_train['Step End Time'])
+
+#I think this is working???
+#[xy_train['Step Start Time'],xy_train['First Transaction Time'],xy_train['Correct Transaction Time'],xy_train['Step End Time']] = step_normalize(xy_train['Anon Student Id'],all_dicts[0].keys()[1:],xy_train['Step Start Time'],xy_train['First Transaction Time'],xy_train['Correct Transaction Time'],xy_train['Step End Time'])
+
+
+#for i in range(len(step_norm_list)):
+#    xy_train[step_norm_list[i]] = step_normalize(xy_train['Anon Student Id'],all_dicts[0].keys()#[1:],xy_train[step_norm_list[i]])
 
 #ent = entropy_calc(map(int,y_pred),x_prob,all_dicts[1].keys())
+
