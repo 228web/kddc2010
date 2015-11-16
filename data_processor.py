@@ -14,7 +14,7 @@ for i in range(4):
     print 'Processing ' + time_strings[i]
     xy_train[time_strings[i]] = ld.convert_times(xy_train[time_strings[i]])
 
-id_strings = ['Anon Student Id','Problem Name']
+id_strings = ['Anon Student Id','Step Name','Problem Name']
 all_dicts = []
 
 for i in range(2):
@@ -28,9 +28,10 @@ all_dicts.append(temp2)
 
 #All_dicts:
 #	0: Student ID
-#	1: Problem Name
-#	2: Problem Unit
-#	3: Problem Section
+#	1: Step Name
+#	2: Problem Name
+#	3: Problem Unit
+#	4: Problem Section
 
 tag_master = tg.string_tags(xy_train['KC(Default)'])
 
@@ -58,6 +59,21 @@ y_pred = xy_train['Correct First Attempt']
 ent = dt.entropy_calc(map(int,y_pred),[0],[])
 
 #ent = entropy_calc(map(int,y_pred),x_prob,all_dicts[1].keys())
+
+#Some variables we could split on:
+#	Anon Student ID
+#	Problem Unit
+#	Problem Section
+#	Problem View
+#	Problem Name
+#	Step Name
+#	Step Start Time (normalized by FIRST student transaction time)
+#	Step Start Time (normalized by FIRST student transaction time for each skill)
+#	Step Duration
+#	Incorrects
+#	Hints
+#	Skill
+#	Opportunity
 
 # Calculate step start time from FIRST student transaction
 # Calculate the above, but separate by skill?
