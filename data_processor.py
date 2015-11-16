@@ -49,7 +49,6 @@ int_s = ['Correct First Attempt','Incorrects','Hints','Corrects']
 for i in range(len(int_s)):
     xy_train[int_s[i]] = map(int,xy_train[int_s[i]])
 
-
 y_pred = xy_train['Correct First Attempt']
 
 #Check entropy of the data
