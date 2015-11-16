@@ -14,7 +14,10 @@ for i in range(4):
     print 'Processing ' + time_strings[i]
     xy_train[time_strings[i]] = ld.convert_times(xy_train[time_strings[i]])
 
-id_strings = ['Anon Student Id','Step Name','Problem Name']
+#id_strings = ['Anon Student Id','Step Name','Problem Name']
+
+id_strings = ['Anon Student Id','Problem Name']
+
 all_dicts = []
 
 for i in range(2):
@@ -45,23 +48,20 @@ y_pred = xy_train['Correct First Attempt']
 #Check entropy of the data
 ent = dt.entropy_calc(map(int,y_pred),[0],[])
 
+def step_start_normalize(stud_IDs,step_start_times):
+# Normalizes the step start time by student's first transation time
+    sst_T = np.copy(step_start_times)
+    for stud in stud_IDs:
+        rel_steps = [step_start_times[i] for i in np.where(stud_IDs == stud)]
+#        print(rel_steps[0])
+
+# In case this array isn't sorted...
+        rel_steps_ind_sort = (np.argsort(rel_steps)[0])
+
+        for i in range(len(rel_steps_ind_sort)):
+            step_start_times[rel_steps_ind_sort[i]] = step_start_times[rel_steps_ind_sort[i]] - step_start_times[rel_steps_ind_sort[0]]
+
+    return step_start_times
+
+
 #ent = entropy_calc(map(int,y_pred),x_prob,all_dicts[1].keys())
-
-#Some variables we could split on:
-#	Anon Student ID
-#	Problem Unit
-#	Problem Section
-#	Problem View
-#	Problem Name
-#	Step Name
-#	Step Start Time (normalized by FIRST student transaction time)
-#	Step Start Time (normalized by FIRST student transaction time for each skill)
-#	Step Duration
-#	Incorrects
-#	Hints
-#	Skill
-#	Opportunity
-
-# Calculate step start time from FIRST student transaction
-# Calculate the above, but separate by skill?
-
