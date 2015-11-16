@@ -9,8 +9,8 @@ import numpy as np
 import datetime as dt
 from collections import defaultdict
 
-trainDat = 'algebra_2005_2006_train.txt'
-testDat = 'algebra_2005_2006_test.txt'
+trainDat = '../algebra_2005_2006_train.txt'
+testDat = '../algebra_2005_2006_test.txt'
 
 def loader(data):
     """
@@ -78,6 +78,7 @@ def convert_times(time):
     t0 = dt.datetime(1970,1,1)
     tLen = len(time)
     t = np.empty(tLen)
+    err_count = 0
     for k in range(tLen):
         try:
             t1 = dt.datetime.strptime(time[k], '%Y-%m-%d %H:%M:%S.%f')
@@ -86,9 +87,11 @@ def convert_times(time):
             print "Error, doesn't match format: %Y-%m-%d %H:%M:%S.%f"
             print 'Entry: '+str(k)+', Line: '+time[k]
             deltaT = 0.0
+            err_count = err_count + 1
         
         t[k] = deltaT
-        
+    print 'Fraction of entries that were invalid: ' + str(err_count/float(tLen))
+
     return t
 
 def check_final_answer(stepName):
