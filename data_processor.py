@@ -10,6 +10,16 @@ import dtree as dt
 
 nsize = len(xy_train['Anon Student Id'])
 
+
+flt_s = ['Correct Step Duration (sec)','Error Step Duration (sec)']
+for i in range(len(flt_s)):
+    for j in range(nsize):
+        if xy_train[flt_s[i]][j] == '':
+            xy_train[flt_s[i]][j] = 0.0
+        else:
+            xy_train[flt_s[i]][j] = float(xy_train[flt_s[i]][j])
+
+
 time_strings = ['Step Start Time','First Transaction Time','Correct Transaction Time','Step End Time']
 
 for i in range(4):
@@ -79,14 +89,14 @@ def step_normalize(stud_IDs,stud_dict,step_start_time,first_trans_time,corr_tran
         se = step_end_time[rel_ind]
 
 #        print np.where(ctt > 0.0, 9, 11)
-        print ctt - ftime
+#        print ctt - ftime
 
         aa[rel_ind] = np.where(sst > 0.0,sst - ftime,0.0)
         bb[rel_ind] = np.where(ftt > 0.0,ftt - ftime,0.0)
         cc[rel_ind] = np.where(ctt > 0.0,ctt - ftime,0.0)
         dd[rel_ind] = np.where(se  > 0.0,se  - ftime,0.0)
 
-        print cc[rel_ind[:10]]
+#        print cc[rel_ind[:10]]
 
     return aa,bb,cc,dd
 
