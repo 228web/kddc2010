@@ -1,5 +1,6 @@
 \documentclass{article} % For LaTeX2e
 \usepackage{nips14submit_e,times}
+\usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{url}
 %\documentstyle[nips14submit_09,times,art10]{article} % For LaTeX 2.09
@@ -62,10 +63,18 @@ A hidden Markov model (HMM) was implemented to track the learning curve of the i
 We have experimented with smoothing with the forward-backward algorithm to predict subsequent Correct First Attempt variables making some rough assumptions about start, transition, and emission probabilities of the hidden and observed states. Observations at a given problem are split into three states based on whether their first attempt was correct, if not, whether they at least had more corrects than incorrects, and otherwise. The students are assumed to start in the unknowledgeable state with 99\% probability. The smoothed data then predicts a probability for observing the next Correct on First Attempt variable as a 1.
 
 \subsection{Results}
-The output probabilities are plagued by underflows, where the probability of being in a particular hidden model state after many steps is too small to be tracked. A simple fix is to compute log probabilites instead of raw probabilities. Currently, underflow errors are treated as non-predictive, but predictive states show a .525 root-mean-square-error.
+The output probabilities are plagued by underflows, where the probability of being in a particular hidden model state after many steps is too small to be tracked. A simple fix is to try implementing using an arbitrary floating point python package like mpmath. Another possibility is trying to implement the forward/backward algorithm with log probabilities instead. Currently, underflow errors are treated as non-predictive, approximately a third of students at this point, but predictive states show a root-mean-square-error of .477. A few quick tests were performed stepping through different transition probabilites from the unknowledgeable state, see figure~\ref{fig:dunno}.
+
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=0.8\textwidth]{dunno.png}
+\label{fig:dunno}
+\end{center}
+\caption{Root-Mean-Square-Error with increasing probability of staying at unknowledgeable state from problem to problem.}
+\end{figure}
 
 \section{Future Work}
-We hope to implement the Baum-Welch algorithm to train our HMM transition and emission probabilities instead of our biased guesses.
+We hope to implement the Baum-Welch algorithm to train our HMM transition and emission probabilities instead of our biased guesses. Additionally, we intend to implement these hidden Markov model algorithms not just on each student but for each skill a student encounters. Since the test data variables only consist of the KC skills, opportunity, student and problem names, we do not have much to use the decision trees on. However, we can use our HMM to create new variables of skill knowledge. The decision tree can then operate on these new set of variables developed from the training data.
 
 \section{Submission of papers to NIPS 2014}
 

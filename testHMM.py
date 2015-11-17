@@ -127,10 +127,11 @@ def hmm_tester(x, start, trans, emit):
 
 error = np.zeros(20)
 for k in range(20):
-    p = k*.01+.79
-    startP = [p, 1-p]
-    transP = [[.8,.2],[.01,.99]]
-    emitP = np.array([[.6,.3,.1],[.1,.3,.6]])
+    p = k*.005 +.85
+    #startP = [p, 1-p]
+    startP = [.99, .01]
+    transP = [[p,1-p],[.01,.99]]
+    emitP = np.array([[.7,.2,.1],[.1,.3,.6]])
     rmse = hmm_tester(observations, startP, transP, emitP)
     predictions = [rmse[l] for l in range(numStud) if not np.isnan(rmse[l])]
     error[k] = 1-np.average(predictions)
