@@ -11,7 +11,7 @@ import dtree as dt
 nsize = len(xy_train['Anon Student Id'])
 
 
-flt_s = ['Correct Step Duration (sec)','Error Step Duration (sec)']
+flt_s = ['Step Duration (sec)','Correct Step Duration (sec)','Error Step Duration (sec)']
 for i in range(len(flt_s)):
     for j in range(nsize):
         if xy_train[flt_s[i]][j] == '':
