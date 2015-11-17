@@ -6,15 +6,14 @@
 %\documentstyle[nips14submit_09,times,art10]{article} % For LaTeX 2.09
 
 
-\title{Formatting Instructions for NIPS 2014}
-
+\nipsfinalcopy
+\title{Employing an HMM and Decision Tree to Predict Student Behavior}
 
 \author{
-Maximo Q.~Menchaca \\
-Department of Atmospheric Metaphysics\\
-Cranberry-Lemon University\\
-Pittsburgh, PA 15213 \\
-\texttt{poop@poop.uwatmos.poop} \\
+Maximo Q.~Menchaca\\
+Department of Atmospheric Science\\
+518 ATG\\
+\texttt{menchaca@uw.edu} \\
 \And
 John G.~Lee\\
 Department of Physics \\
@@ -41,27 +40,50 @@ Department of Physics \\
 \maketitle
 
 \begin{abstract}
-The abstract paragraph should be indented 1/2~inch (3~picas) on both left and
-right-hand margins. Use 10~point type, with a vertical spacing of 11~points.
-The word \textbf{Abstract} must be centered, bold, and in point size 12. Two
-line spaces precede the abstract. The abstract must be limited to one
-paragraph.
+An online tutoring system tracks student interactions as they learn. The tracked interactions can be used to predict student performance. The method outlined in our project proposal [4] describes the beginnings of an HMM and decision tree to predict this performance. The decision tree and HMM will be used in conjunction to determine the learning rate of a student. While not yet used synergistically, both methods already yield promise in predicting student behavior.
+
 \end{abstract}
 
 \section{Data preprocessing}
-The data comes in the format of records from the tutoring program, 19 variables. Each student is given an anonymous identification, times of submissions are in the form of dates, and problem names and skills have individualized names. Student IDs were converted from strings to integers and dates were converted to epoch time. Because multiple skills could be present for an individual problem, Knowledge Component (KC) skills were converted to a matrix with component values set to one if the skill is present in the problem and zero otherwise. Similarly the Opportunity variable was converted to a matrix but with component values set to the opportunity number if the skill is present in the problem and zero otherwise.
+The data comes in the format of records from the tutoring program, 19 variables. These variables include Problem Section, Unit, Name, time spent on the problem, hint queries, and number of times a student encounters a particular skill. Student IDs and problem information were converted from strings to integers, while dates were converted to epoch time. Because multiple skills could be present for an individual problem, Knowledge Component (KC) skills were converted to a matrix with component values set to one if the skill is present in the problem and zero otherwise. Similarly the associated Opportunity variable was converted to a matrix but with component values set to the opportunity number if the skill is present in the problem and zero otherwise.
 
 \section{Decision Tree}
+\subsection{Implementation}
+The goal of a decision tree is to partition the data into classes that give low entropy organization of the dependent variable. Some variables lend themselves better to splitting then others. For example, one would expect the variable 'Opportunity' to be a good variable to split on - the more times a student encounters a given variable, the better they should do. Another possibility is 'Step Duration' - the longer a student spends on a given step, the more trouble they may be having and the less likely it is they will do well. On the other hand, the variable 'Incorrects' would be an extremely poor variable to split on - if a student achieved ANY incorrects for a given step, obviously they must not have gotten their first attempt correct!
+
+\subsection{Test, Results}
+We implement a preliminary decision tree using the two variables 'Step Duration' and 'Opportunity'. The following two tables depict the two possible trees with this implementation. The parenthetical values is the count in each class - and Root = Opportunity/Root = Step Duration give the predicted y value.
+\begin{table}[t]
+\caption{Decision tree application to test data}
+\begin{center}
+\begin{tabular}{c|c|c|c|c|c|c|c}
+\multicolumn{8}{c}{Root = Opportunity}\\
+Duration & Empty & 1 $>$ 5 & 5 $>$ 15 & 15 $>$ 25 & 25 $>$ 50 & 50 $>$ 100 & 100 $>$ ...\\
+& (202669) & (66137) & (113527) & (73460) & (109617) & (105889) & (138395)\\
+\hline
+empty (3268) & 0/1 (1912) & 0/0 (245) & 0/0(301) & 0/0 (139) & 0/0 (222) & 0/0 (265) & 0/0 (184)\\
+1 $>$ 15 (471730) & 1/0 (118157) & 1/0  (28966) & 1/0 (61024) & 1/0 (41988) & 1/0 (64766) & 1/0 (65678) & 1/0 (91151)\\
+15 $>$ 30 (148490) & 0/0 (36914) & 0/0  (13167) & 0/0 (21686) & 0/0 (13453) & 0/0 (20447) & 0/0 (19060) & 0/0 (23763)\\
+30 $>$ 45 (65065) & 0/0 (17430) & 0/0  (6766) & 0/0 (9919) & 0/0 (5941) & 0/0 (8564) & 0/0 (7586) & 0/0 (8859)\\
+45 $>$ 60 (35206) & 0/0 (9043) & 0/0 (4086) & 0/0 (5599) & 0/0 (3426) & 0/0 (4582) & 0/0 (4035) & 0/0 (4435)\\
+60 $>$ ... (85935) & 0/0 (19213) & 0/0 (12907) & 0/0 (14998) & 0/0 (8513) & 0/0 (11036) & 0/0 (9265) & 0/0 (10003)\\
+\end{tabular}
+\end{center}
+\end{table}
+
+The raw entropy of the data is $H(Y)$= 0.78, and after applying our decision tree, we obtain similar values either way - $H(Y|\bf{Opp}|\bf{Duration}) \approx H(Y|\bf{Duration}|\bf{Opp})$ = 0.65. However, we can see that the predicted values are much different either way - there is just one positive prediction if we use a root of Step Duration - when the opportunity is empty! This indicates some lack of robustness in choosing bins for the opportunity, which can be confirmed by changing these bins (not shown). On the other hand, we see that a small step duration leads to positive prediction robustly across all opportunity classes.
+
+Applying this binning to create predicted $y_{pred}$ = 'Correct First Attempt' leads to an RMSE of $||y - y_{pred}||_2$ = .284 for Root = Opportunity and = .45 for Root = Step Duration across the training set. We cannot apply the decision tree on its own to the test set, as the step duration is not given.
 
 \section{Hidden Markov Model}
 \subsection{Implementation}
-A hidden Markov model (HMM) was implemented to track the learning curve of the individual students. We assume our hidden state is whether the student is knowledgeable or not at the time i in order to predict the probability of getting the problem i+1 correct on the first attempt. The model requires the creation of a finite set of possible observations given the various preprocessed variables. 
+A hidden Markov model (HMM) was implemented to track the learning curve of the individual students [1]-[2]. We assume our hidden state is whether the student is knowledgeable or not at the time i in order to predict the probability of getting the problem i+1 correct on the first attempt. The model requires the creation of a finite set of possible observations given the various preprocessed variables. 
 
 \subsection{Test}
-We have experimented with smoothing with the forward-backward algorithm to predict subsequent Correct First Attempt variables making some rough assumptions about start, transition, and emission probabilities of the hidden and observed states. Observations at a given problem are split into three states based on whether their first attempt was correct, if not, whether they at least had more corrects than incorrects, and otherwise. The students are assumed to start in the unknowledgeable state with 99\% probability. The smoothed data then predicts a probability for observing the next Correct on First Attempt variable as a 1.
+We have experimented with smoothing by applying the forward-backward algorithm to predict subsequent Correct First Attempt variables. Educated but rough assumptions were made about start, transition, and emission probabilities of the hidden and observed states. Observations at a given problem are split into three states based on (1) whether their first attempt on any problem was correct; (2) if not, whether they at least had more corrects than incorrects over their entire observation history, and (3) otherwise. The students are assumed to start in the unknowledgeable state with 99\% probability. The smoothed data then predicts a probability for observing the next Correct on First Attempt variable as a 1.
 
 \subsection{Results}
-The output probabilities are plagued by underflows, where the probability of being in a particular hidden model state after many steps is too small to be tracked. A simple fix is to try implementing using an arbitrary floating point python package like mpmath. Another possibility is trying to implement the forward/backward algorithm with log probabilities instead. Currently, underflow errors are treated as non-predictive, approximately a third of students at this point, but predictive states show a root-mean-square-error of .477. A few quick tests were performed stepping through different transition probabilites from the unknowledgeable state, see figure~\ref{fig:dunno}.
+The output probabilities are plagued by underflows, where the probability of being in a particular hidden model state after many steps is too small to be tracked. A simple fix is to try implementing using an arbitrary floating point python package like mpmath. Another possibility is trying to implement the forward/backward algorithm with log probabilities instead [2]. Currently, underflow errors are treated as non-predictive, a state that currently applies to approximately a third of students, but predictive states show a root-mean-square-error of .477. A few quick tests were performed stepping through different transition probabilites from the unknowledgeable state, see figure~\ref{fig:dunno}.
 
 \begin{figure}[h]
 \begin{center}
@@ -72,208 +94,14 @@ The output probabilities are plagued by underflows, where the probability of bei
 \end{figure}
 
 \section{Future Work}
-We hope to implement the Baum-Welch algorithm to train our HMM transition and emission probabilities instead of our biased guesses. Additionally, we intend to implement these hidden Markov model algorithms not just on each student but for each skill a student encounters. Since the test data variables only consist of the KC skills, opportunity, student and problem names, we do not have much to use the decision trees on. However, we can use our HMM to create new variables of skill knowledge. The decision tree can then operate on these new set of variables developed from the training data.
 
-\section{Submission of papers to NIPS 2014}
+The decision tree on its own cannot be used on the test data, as very few variables are given (just the student, problem, opportunity, tested skill). We hope to implement the Baum-Welch algorithm to train our HMM transition and emission probabilities instead of the biased guesses used above. Additionally, we intend to implement these hidden Markov model algorithms not just on each student but for each skill a student encounters, to take advantage of data given in the test set. The decision tree will be implemented to further inform the transition probabilities used in the HMM. Variables deemed important in predicting a student's correct first attempt can be observed in test data and used to tune transition and emission probabilities - and finally, the time of transition to mastering a particular skill can be compared with the times in the test data to predict the student's correct attempts.
 
-NIPS requires electronic submissions.  The electronic submission site is  
-\begin{center}
-   \url{http://papers.nips.cc}
-\end{center}
+\subsubsection*{Acknowledgments}
 
-Please read carefully the
-instructions below, and follow them faithfully.
-\subsection{Style}
-
-Papers to be submitted to NIPS 2014 must be prepared according to the
-instructions presented here. Papers may be only up to eight pages long,
-including figures. Since 2009 an additional ninth page \textit{containing only
-cited references} is allowed. Papers that exceed nine pages will not be
-reviewed, or in any other way considered for presentation at the conference.
-%This is a strict upper bound. 
-
-Please note that this year we have introduced automatic line number generation
-into the style file (for \LaTeXe and Word versions). This is to help reviewers
-refer to specific lines of the paper when they make their comments. Please do
-NOT refer to these line numbers in your paper as they will be removed from the
-style file for the final version of accepted papers.
-
-The margins in 2014 are the same as since 2007, which allow for $\approx 15\%$
-more words in the paper compared to earlier years. We are also again using 
-double-blind reviewing. Both of these require the use of new style files.
-
-Authors are required to use the NIPS \LaTeX{} style files obtainable at the
-NIPS website as indicated below. Please make sure you use the current files and
-not previous versions. Tweaking the style files may be grounds for rejection.
-
-%% \subsection{Double-blind reviewing}
-
-%% This year we are doing double-blind reviewing: the reviewers will not know 
-%% who the authors of the paper are. For submission, the NIPS style file will 
-%% automatically anonymize the author list at the beginning of the paper.
-
-%% Please write your paper in such a way to preserve anonymity. Refer to
-%% previous work by the author(s) in the third person, rather than first
-%% person. Do not provide Web links to supporting material at an identifiable
-%% web site.
-
-%%\subsection{Electronic submission}
-%%
-%% \textbf{THE SUBMISSION DEADLINE IS June 6, 2014. SUBMISSIONS MUST BE LOGGED BY
-%% 23:00, June 6, 2014, UNIVERSAL TIME}
-
-%% You must enter your submission in the electronic submission form available at
-%% the NIPS website listed above. You will be asked to enter paper title, name of
-%% all authors, keyword(s), and data about the contact
-%% author (name, full address, telephone, fax, and email). You will need to
-%% upload an electronic (postscript or pdf) version of your paper.
-
-%% You can upload more than one version of your paper, until the
-%% submission deadline. We strongly recommended uploading your paper in
-%% advance of the deadline, so you can avoid last-minute server congestion.
-%%
-%% Note that your submission is only valid if you get an e-mail
-%% confirmation from the server. If you do not get such an e-mail, please
-%% try uploading again. 
-
-
-\subsection{Retrieval of style files}
-
-The style files for NIPS and other conference information are available on the World Wide Web at
-\begin{center}
-   \url{http://www.nips.cc/}
-\end{center}
-The file \verb+nips2014.pdf+ contains these 
-instructions and illustrates the
-various formatting requirements your NIPS paper must satisfy. \LaTeX{}
-users can choose between two style files:
-\verb+nips11submit_09.sty+ (to be used with \LaTeX{} version 2.09) and
-\verb+nips11submit_e.sty+ (to be used with \LaTeX{}2e). The file
-\verb+nips2014.tex+ may be used as a ``shell'' for writing your paper. All you
-have to do is replace the author, title, abstract, and text of the paper with
-your own. The file
-\verb+nips2014.rtf+ is provided as a shell for MS Word users.
-
-The formatting instructions contained in these style files are summarized in
-sections \ref{gen_inst}, \ref{headings}, and \ref{others} below.
-
-%% \subsection{Keywords for paper submission}
-%% Your NIPS paper can be submitted with any of the following keywords (more than one keyword is possible for each paper):
-
-%% \begin{verbatim}
-%% Bioinformatics
-%% Biological Vision
-%% Brain Imaging and Brain Computer Interfacing
-%% Clustering
-%% Cognitive Science
-%% Control and Reinforcement Learning
-%% Dimensionality Reduction and Manifolds
-%% Feature Selection
-%% Gaussian Processes
-%% Graphical Models
-%% Hardware Technologies
-%% Kernels
-%% Learning Theory
-%% Machine Vision
-%% Margins and Boosting
-%% Neural Networks
-%% Neuroscience
-%% Other Algorithms and Architectures
-%% Other Applications
-%% Semi-supervised Learning
-%% Speech and Signal Processing
-%% Text and Language Applications
-
-%% \end{verbatim}
-
-\section{General formatting instructions}
-\label{gen_inst}
-
-The text must be confined within a rectangle 5.5~inches (33~picas) wide and
-9~inches (54~picas) long. The left margin is 1.5~inch (9~picas).
-Use 10~point type with a vertical spacing of 11~points. Times New Roman is the
-preferred typeface throughout. Paragraphs are separated by 1/2~line space,
-with no indentation.
-
-Paper title is 17~point, initial caps/lower case, bold, centered between
-2~horizontal rules. Top rule is 4~points thick and bottom rule is 1~point
-thick. Allow 1/4~inch space above and below title to rules. All pages should
-start at 1~inch (6~picas) from the top of the page.
-
-%The version of the paper submitted for review should have ``Anonymous Author(s)'' as the author of the paper.
-
-For the final version, authors' names are
-set in boldface, and each name is centered above the corresponding
-address. The lead author's name is to be listed first (left-most), and
-the co-authors' names (if different address) are set to follow. If
-there is only one co-author, list both author and co-author side by side.
-
-Please pay special attention to the instructions in section \ref{others}
-regarding figures, tables, acknowledgments, and references.
-
-\section{Headings: first level}
-\label{headings}
-
-First level headings are lower case (except for first word and proper nouns),
-flush left, bold and in point size 12. One line space before the first level
-heading and 1/2~line space after the first level heading.
-
-\subsection{Headings: second level}
-
-Second level headings are lower case (except for first word and proper nouns),
-flush left, bold and in point size 10. One line space before the second level
-heading and 1/2~line space after the second level heading.
-
-\subsubsection{Headings: third level}
-
-Third level headings are lower case (except for first word and proper nouns),
-flush left, bold and in point size 10. One line space before the third level
-heading and 1/2~line space after the third level heading.
-
-\section{Citations, figures, tables, references}
-\label{others}
-
-These instructions apply to everyone, regardless of the formatter being used.
-
-\subsection{Citations within the text}
-
-Citations within the text should be numbered consecutively. The corresponding
-number is to appear enclosed in square brackets, such as [1] or [2]-[5]. The
-corresponding references are to be listed in the same order at the end of the
-paper, in the \textbf{References} section. (Note: the standard
-\textsc{Bib\TeX} style \texttt{unsrt} produces this.) As to the format of the
-references themselves, any style is acceptable as long as it is used
-consistently.
-
-As submission is double blind, refer to your own published work in the 
-third person. That is, use ``In the previous work of Jones et al.\ [4]'',
-not ``In our previous work [4]''. If you cite your other papers that
-are not widely available (e.g.\ a journal paper under review), use
-anonymous author names in the citation, e.g.\ an author of the
-form ``A.\ Anonymous''. 
-
-
-\subsection{Footnotes}
-
-Indicate footnotes with a number\footnote{Sample of the first footnote} in the
-text. Place the footnotes at the bottom of the page on which they appear.
-Precede the footnote with a horizontal rule of 2~inches
-(12~picas).\footnote{Sample of the second footnote}
-
-\section{Final instructions}
-Do not change any aspects of the formatting parameters in the style files.
-In particular, do not modify the width or length of the rectangle the text
-should fit into, and do not change font sizes (except perhaps in the
-\textbf{References} section; see below). Please note that pages should be
-numbered.
+Author MM acknowledges John G. Lee for his quality work thus far on the project described above. Author JL acknowledges Maximo Q. Menchaca for his quality work thus far on the project described above.
 
 \subsubsection*{References}
-
-References follow the acknowledgments. Use unnumbered third level heading for
-the references. Any choice of citation style is acceptable as long as you are
-consistent. It is permissible to reduce the font size to `small' (9-point) 
-when listing the references. {\bf Remember that this year you can use
-a ninth page as long as it contains \emph{only} cited references.}
 
 \small{
 [1] Frazzoli, E. (2010) Principles of Autonomy and Decision Making. 
@@ -286,5 +114,9 @@ and recall at excitatory recurrent synapses and cholinergic modulation
 in rat hippocampal region CA3. {\it Journal of Neuroscience}
 {\bf 15}(7):5249-5262.
 }
+
+[4] Lee, J.G.\& Menchaca, M.Q. (2015) Student Performance Prediction Using Hidden Markov Models and Decision Tree. CSE 546 Autumn 2015 Project Proposal, 1 pp., Unpublished.
+
+[5] Guestrin, C. (2014) \url{ https://courses.cs.washington.edu/courses/cse546/14au/slides/decision-trees-annotated.pdf}
 
 \end{document}

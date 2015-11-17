@@ -18,7 +18,7 @@ Department of Atmospheric Science\\
 John G.~Lee\\
 Department of Physics \\
 180 NPL Building \\
-\texttt{poop@poop.gravity.physics.washington.poopsicle} \\
+\texttt{jgl6@uw.edu} \\
 }
 
 % The \author macro works with any number of authors. There are two commands
@@ -77,13 +77,13 @@ Applying this binning to create predicted $y_{pred}$ = 'Correct First Attempt' l
 
 \section{Hidden Markov Model}
 \subsection{Implementation}
-A hidden Markov model (HMM) was implemented to track the learning curve of the individual students. We assume our hidden state is whether the student is knowledgeable or not at the time i in order to predict the probability of getting the problem i+1 correct on the first attempt. The model requires the creation of a finite set of possible observations given the various preprocessed variables. 
+A hidden Markov model (HMM) was implemented to track the learning curve of the individual students [1]-[2]. We assume our hidden state is whether the student is knowledgeable or not at the time i in order to predict the probability of getting the problem i+1 correct on the first attempt. The model requires the creation of a finite set of possible observations given the various preprocessed variables. 
 
 \subsection{Test}
 We have experimented with smoothing by applying the forward-backward algorithm to predict subsequent Correct First Attempt variables. Educated but rough assumptions were made about start, transition, and emission probabilities of the hidden and observed states. Observations at a given problem are split into three states based on (1) whether their first attempt on any problem was correct; (2) if not, whether they at least had more corrects than incorrects over their entire observation history, and (3) otherwise. The students are assumed to start in the unknowledgeable state with 99\% probability. The smoothed data then predicts a probability for observing the next Correct on First Attempt variable as a 1.
 
 \subsection{Results}
-The output probabilities are plagued by underflows, where the probability of being in a particular hidden model state after many steps is too small to be tracked. A simple fix is to try implementing using an arbitrary floating point python package like mpmath. Another possibility is trying to implement the forward/backward algorithm with log probabilities instead. Currently, underflow errors are treated as non-predictive, a state that currently applies to approximately a third of students, but predictive states show a root-mean-square-error of .477. A few quick tests were performed stepping through different transition probabilites from the unknowledgeable state, see figure~\ref{fig:dunno}.
+The output probabilities are plagued by underflows, where the probability of being in a particular hidden model state after many steps is too small to be tracked. A simple fix is to try implementing using an arbitrary floating point python package like mpmath. Another possibility is trying to implement the forward/backward algorithm with log probabilities instead [2]. Currently, underflow errors are treated as non-predictive, a state that currently applies to approximately a third of students, but predictive states show a root-mean-square-error of .477. A few quick tests were performed stepping through different transition probabilites from the unknowledgeable state, see figure~\ref{fig:dunno}.
 
 \begin{figure}[h]
 \begin{center}
