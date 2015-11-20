@@ -1,0 +1,8 @@
+#Python compiler files
+*.pyc
+
+#latex files
+*.aux
+*.log
+*.out
+*.synctex.gz

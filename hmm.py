@@ -241,7 +241,6 @@ def frwd_bkwd(x, startP, transP, emitP):
     posterior : ndarray
         posterior probability P(pi_i = k|x)    
     """
-    
     xLen = len(x)
     kLen, dLen = np.shape(emitP)
     f, probF = forward(x, startP, transP, emitP)
@@ -253,33 +252,61 @@ def frwd_bkwd(x, startP, transP, emitP):
     return f, b, probF, probB, posterior
     
 def baum_welch(x, startP, transP, emitP, delta, maxIt = 100):
-    #Wrong!
+    """
+    Baum-Welch algorithm, derived from MIT open courseware pdf. See 
+    "http://ocw.mit.edu/courses/aeronautics-and-astronautics/
+    16-410-principles-of-autonomy-and-decision-making-fall-2010/lecture-notes/
+    MIT16_410F10_lec21.pdf"
+    
+    x : ndarray
+        nx1 observed emitted data
+    startP : ndarray
+        kx1 probabilities for starting in any hidden model state
+    transP : ndarray
+        kxk transition probabilities of hidden model, p_ij = P(i->j)
+    emitP : ndarray
+        kxd probability of emitting value from given hidden model state, k
+    
+    Returns
+    -------
+    startP : ndarray
+        kx1 probabilities for starting in any hidden model state
+    transP : ndarray
+        kxk transition probabilities of hidden model, p_ij = P(i->j)
+    emitP : ndarray
+        kxd probability of emitting value from given hidden model state, k    
+    """
     counter = 0
     converged = False
     xLen = len(x)
-    kLen = len(startP)
+    kLen,dLen = np.shape(emitP)
     transOut = np.zeros(kLen)
-    transIJ = np.zeros([kLen,xLen])
+    transIJ = np.zeros([xLen, kLen, kLen])
     while(not converged and counter < maxIt):
         converged = True
         counter += 1
-        f, b, probF, probB, posterior = frwd_bkwd(x, startP, transP, emitP)
-        transOut = np.sum(posterior[:-1],1)
+        indicator = np.zeros([kLen, dLen])
         transPOld = np.copy(transP)
-        
         emitPOld = np.copy(emitP)
+        f, b, probF, probB, gamma = frwd_bkwd(x, startP, transP, emitP)
+        transOut = np.sum(gamma[:-1],1)
+        emitOut = np.sum(gamma,1)
+        startP = gamma[0]
         for k in range(kLen):
-            emitInd = np.zeros([kLen,xLen])
-            transIJ[k] = f[k]*b*transPOld[k]*emitP[:,x[k]]/probF
-            transP[k] = np.sum(transIJ)/np.sum(transOut)
-            if abs(transP[k]-transPOld[k])>delta:
-                converged = converged and False
-            for l in range(xLen):
-                if x[l] == k:
-                    emitInd += 1
-            emitP[k] = np.sum(posterior*emitInd)/np.sum(posterior,1)
+            for m in range(dLen):
+                if x[k] == m:
+                    indicator[k,m] = 1
+            emitP[k] = np.dot(gamma,indicator)/emitOut[:]
+            for l in range(kLen):
+                transIJ[:,k,l] = f[k]*b[l]*transPOld[k,l]*emitPOld[:,x[l]]
+                transP[k,l] = np.sum(transIJ[k,l])/transOut[k]
+                
+        if np.sum((emitP-emitPOld)**2)>delta:
+            converged = converged and False
+        if np.sum((transP-transPOld)**2)>delta:
+            converged = converged and False
         
-    return transP, emitP
+    return startP, transP, emitP
     
 def viterbi_wiki(obs, states, startP, transP, emitP):
     V = [{}]
