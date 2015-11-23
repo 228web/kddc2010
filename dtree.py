@@ -146,7 +146,7 @@ def calc_adapt_dtree(y_vals,dataset,dataset_bins,var_strings):
     tree_order = np.zeros((depth_tree),int)
     tree_remain = [i for i in range(depth_tree)]
 
-    ent_base = dt.entropy_calc(y_vals,[0],[])
+    ent_base = entropy_calc(y_vals,[0],[])
 
     for d in range(depth_tree):
 #        b_index = tree_order[d]
@@ -159,7 +159,7 @@ def calc_adapt_dtree(y_vals,dataset,dataset_bins,var_strings):
             IG = np.zeros((len(tree_remain)),float)
             IG[:] = ent_base
             for l in range(depth_tree):
-                IG[l] = IG[l] - dt.entropy_calc(y_vals,dataset[l],dataset_bins[l])
+                IG[l] = IG[l] - entropy_calc(y_vals,dataset[l],dataset_bins[l])
             root_point = np.where(IG == np.max(IG))[0]
             b_index = tree_remain[root_point]
             tree_order[d] = b_index
@@ -242,7 +242,7 @@ def entropy_recurse(y_vals,x_vals,dataset_bins,b_i,depth,curr_depth):
         y_class = np.array([y_vals[kk] for kk in b_i])
         x_class = np.array([x_vals[kk] for kk in b_i])
         if len(y_class) > 0:
-            ent = class_size*dt.entropy_calc(y_class,x_class,dataset_bins)
+            ent = class_size*entropy_calc(y_class,x_class,dataset_bins)
         else:
             ent = 0.0
     return ent,class_size
