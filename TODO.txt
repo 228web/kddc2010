@@ -5,13 +5,13 @@ DONE -Convert student IDs to an integer ID, dictionary lookup
 DONE-Check if multiple skill problems have multiple opportunities associated.
 
 	NOTE: Appears to be working,but NOTE: Some entries have been intentionally removed - they are in the test set!
--IMPORTANT: Check if opportunity and skills match up (the student indeed has seen this skill the number of times opportunity tells us.)
+DONE-IMPORTANT: Check if opportunity and skills match up (the student indeed has seen this skill the number of times opportunity tells us.)
 
 
 -Write a function to return a given row as a list
 
 Once the following are done, we should have a decent handle on which features are important:
--Make decision tree to see what features best predict first correct
+DONE-Make decision tree to see what features best predict first correct
 -HMM to learn this itself
 
 
