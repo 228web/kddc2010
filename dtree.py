@@ -49,9 +49,10 @@ def entropy_calc(y,x,x_classes):
             else:
 
                 y_vals = [y[j] for j in cl_inds[0]]
+# The probability we are in the current class
                 P_x = cl_size/float(npts)
 
-
+# The y outputs in this class
                 P_x_1 = sum(y_vals)/float(cl_size)
                 P_x_0 = 1. - P_x_1
 
@@ -158,10 +159,10 @@ def calc_adapt_dtree(y_vals,dataset,dataset_bins,var_strings):
         if d == 0: # Create tree root
             IG = np.zeros((len(tree_remain)),float)
             IG[:] = ent_base
-            for l in range(depth_tree):
+            for l in range(depth_tree): # Calculate entropy for each candidate independent variable
                 IG[l] = IG[l] - entropy_calc(y_vals,dataset[l],dataset_bins[l])
             root_point = np.where(IG == np.max(IG))[0]
-            b_index = tree_remain[root_point]
+            b_index = tree_remain[root_point] # Find the best one
             tree_order[d] = b_index
             del tree_remain[b_index]
             ent_base = ent_base - IG[root_point]
@@ -175,12 +176,12 @@ def calc_adapt_dtree(y_vals,dataset,dataset_bins,var_strings):
             rem_depth = len(tree_remain)
             IG = np.zeros((rem_depth),float)
             IG[:] = ent_base
-            for x in range(rem_depth):
+            for x in range(rem_depth): # Calculate the entropy for each candidate independent variable
                 poss_index = tree_remain[x]
                 [entropy_prov,class_size] = entropy_recurse(y_vals,dataset[poss_index],dataset_bins[poss_index],branch_indices,d,0)
                 IG[x] = IG[x] - entropy_prov
             root_point = np.where(IG == np.max(IG))[0]
-            b_index = tree_remain[root_point]
+            b_index = tree_remain[root_point] # Find the best one
             tree_order[d] = b_index
             del tree_remain[root_point]
             ent_base = ent_base - IG[root_point]
@@ -188,8 +189,6 @@ def calc_adapt_dtree(y_vals,dataset,dataset_bins,var_strings):
             lev_classes = dataset_bins[b_index]
             num_branches = len(lev_classes)
 
-
-#            print IG
 
             shape_array = np.append(shape_array,num_branches)
             branch_indices = branch_recurse(dataset[b_index],lev_classes,branch_indices,d+1,0)
@@ -200,56 +199,128 @@ def calc_adapt_dtree(y_vals,dataset,dataset_bins,var_strings):
 
 # Functions used to calculate the decision tree
 def branch_recurse(x_array,dataset_bins,b_i,depth,curr_depth):
+    """
+    Recursively create branches for a tree
+    
+    Inputs
+    ------
+    x_array : array
+        The independent variable for which we want to create branches
+    dataset_bins : list
+        The classes of x_array
+    b_i : list
+        A list with the same shape as the tree that contains the indices for each class
+        First dimension - the indices for each of the different classes of tree root x_1 = i b_i[0] = all indices where x_1 = 0...
+        Second dimension - subclass: b_i[0,0] = all indices where x_1 = 0, x_2 = 0, b_i[3,4] = all indices where x_1 = 3, x_2 = 4
+	Third dimension - etc... (b_i[2,5,3] = all indices where x_1 = 2, x_2 = 5, x_3 = 3...
+    depth : integer
+        Desired depth of full tree
+    curr_depth : integer
+	Current depth of tree
+
+   Returns
+    -------
+    final_array : list
+	Gives b_i for a tree with a depth one deeper than the input b_i
+    Sample Call:
+        final_array = branch_recurse(x_array,dataset_bins,b_i,depth,curr_depth)
+
+    """
     if depth - 2 > curr_depth:
         final_array = []
         curr_len = np.shape(b_i)[0]
-#        print 'Current depth is ' + str(curr_depth)
-#        print 'Expected loop is ' + str(curr_len)
-        for i in range(curr_len):
-#            print i
+        for i in range(curr_len): # Loop through all the subclasses for our current depth
+#	Call the recursive function again: go a branch deeper into the tree to get all the subclasses for a different predictive variable
+#	Note that x_array and dataset_bins don't change in the new call - these are relevant for the branches we wish to ADD to the tree
+#	We do give only a subset of b_i - we pass only the relevant array indices for each subclass i of the current variable.
             final_array.append(branch_recurse(x_array,dataset_bins,b_i[i],depth,curr_depth + 1))
-    else:
-#         print 'Length: ' + str(x_array[300])
+    else: # We now arrive at the end of the current tree - create branches!
 
          prov_array = branch_fill_func(x_array,dataset_bins)
-#         print np.shape(prov_array)
-         final_array = [None]*len(b_i)
+         final_array = [None]*len(b_i) #The remaining code in the base case finds the indices of each subclass of these branches (that's in prov array), and intersects them with the relevant class of x in the layer above (that's in b_i) - hence the structure of b_i
          for i in range(len(b_i)):
              final_array[i] = [None]*len(prov_array)
-#	 print 'Final array, depth 1 shape is ' +str(np.shape(final_array))
 
          for root_i in range(len(b_i)):
              for prov_i in range(len(prov_array)):
                  final_array[root_i][prov_i] = np.intersect1d(prov_array[prov_i],b_i[root_i])
          print 'Done with recursion'
-#	 print 'Final array, depth 1 shape is ' +str(np.shape(final_array))
     return final_array
 
 def entropy_recurse(y_vals,x_vals,dataset_bins,b_i,depth,curr_depth):
+    """
+    Recursively create branches for a tree
+    
+    Inputs
+    ------
+    y_vals : array
+	The output values, assumed to be either 1 or 0
+    x_array : array
+        The independent variable for which we want to calculate the entropy
+    dataset_bins : list
+        The classes of x_array
+    b_i : list
+        A list with the same shape as the tree that contains the indices for each class
+        First dimension - the indices for each of the different classes of tree root x_1 = i b_i[0] = all indices where x_1 = 0...
+        Second dimension - subclass: b_i[0,0] = all indices where x_1 = 0, x_2 = 0, b_i[3,4] = all indices where x_1 = 3, x_2 = 4
+	Third dimension - etc... (b_i[2,5,3] = all indices where x_1 = 2, x_2 = 5, x_3 = 3...
+    depth : integer
+        Current depth of full tree
+    curr_depth : integer
+	Depth of entropy calculation depth of tree
+
+   Returns
+    -------
+    ent : integer
+	The entropy of the data for the current variable x_array
+    class_size : integer
+	The class size of the subclass in the base case.
+	This is not needed in the original call of entropy_recurse, but IS needed to get the entropy during the recursive calls!
+    Sample Call:
+        [ent,class_size] = entropy_recurse(y_vals,x_array,dataset_bins,b_i,depth,curr_depth)
+
+    """
     ent = 0.0
     class_size = 0
     if depth > curr_depth:
         curr_len = np.shape(b_i)[0]
-        for i in range(curr_len):
+        for i in range(curr_len): # Loop over all classes of the x in this branch of the current layer
             [ent_c,c_c] = entropy_recurse(y_vals,x_vals,dataset_bins,b_i[i],depth,curr_depth+1) 
             ent = ent + ent_c
-            class_size = class_size + c_c
-#            print class_size
-        if class_size >0: #Else case unnecessary, this shouldn't contribute to entropy at all.
+            class_size = class_size + c_c  #Sum up the size of the class, needed to calculate the probability we are in class i of variable x
+        if class_size >0: #Else case unnecessary, as that shouldn't contribute to entropy at all.
             ent = ent/class_size
-    else:
+    else: # Base case, we are at the end of the tree
         class_size = len(b_i)
-        y_class = np.array([y_vals[kk] for kk in b_i])
-        x_class = np.array([x_vals[kk] for kk in b_i])
-        if len(y_class) > 0:
+        y_class = np.array([y_vals[kk] for kk in b_i]) # Relevant indep variable for subclass
+        x_class = np.array([x_vals[kk] for kk in b_i]) # Relevant dep variable for subclass
+        if len(y_class) > 0: # Go back and get the entropty
             ent = class_size*entropy_calc(y_class,x_class,dataset_bins)
-        else:
+        else: #This class is empty, no entropy contribution
             ent = 0.0
     return ent,class_size
 
 def branch_fill_func(data,vals):
+    """
+    Recursively create branches for a tree
+    
+    Inputs
+    ------
+    data : array
+	The independent variable x
+    vals : array
+        The classes of data
+
+   Returns
+    -------
+    branch_fill : list
+	A list with length vals that gives the global indices relevant for each subclass of data
+    Sample Call:
+        branch_fill = branch_fill_func(data,vals)
+
+    """
     b = len(vals)
     branch_fill = [None]*b
-    for x in range(b):
+    for x in range(b): # Find indices for each subclass of the data set.
         branch_fill[x] = [kk for kk in np.where(data == vals[x])][0]
     return branch_fill
