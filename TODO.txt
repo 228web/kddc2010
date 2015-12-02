@@ -15,4 +15,29 @@ DONE-Make decision tree to see what features best predict first correct
 -HMM to learn this itself
 
 
+	There exists students and skills that are in test set, but NOT in the training set
 -Decide whether we want to go by individual students, by skills, by unit/section/problem, etc.
+
+
+
+We need to find features for the HMM to operate on. HMM can run on y output, but since there are only two states, not very interesting.
+DTree - Step duration seems pretty effective in predicting a first correct, but step duration is not given in the test set!
+
+
+MUST find important features in the training set to train our emit, trans, start probabilities on. KEEP IN MIND there are holes in the training set!
+
+We then desire to use the HMM states as features in a decision tree to predict if the student gets a first correct
+
+
+POSTER to do:
+-Find features worth traning our HMM on - step duration?
+-Create HMM's for each skill, for each student
+-Use HMM states to train a DTree
+
+
+
+Poster outline:
+Data intro
+Method - description of HMM, DTree, why we want to use them, how they work on set
+
+Results...
