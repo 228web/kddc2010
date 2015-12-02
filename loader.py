@@ -9,8 +9,13 @@ import numpy as np
 import datetime as dt
 from collections import defaultdict
 
-trainDat = '../algebra_2005_2006_train.txt'
-testDat = '../algebra_2005_2006_test.txt'
+#trainDat = '../algebra_2005_2006_train.txt'
+#testDat = '../algebra_2005_2006_test.txt'
+trainDat = '../algebra_2006_2007_train.txt'
+testDat = '../algebra_2006_2007_test.txt'
+#trainDat = '../bridge_to_algebra_2006_2007_train.txt'
+#testDat = '../bridge_to_algebra_2006_2007_test.txt'
+
 
 def loader(data):
     """
