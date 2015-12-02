@@ -7,7 +7,6 @@ Created on Mon Nov 09 19:20:50 2015
 
 import numpy as np
 import numpy.random as rand
-import operator
 
 def generate_hmm_dat(n,p):
     """
@@ -153,25 +152,34 @@ def forward(x, startP, transP, emitP):
     -------
     f : ndarray
         forward probabilities at each series point x[k]
-    prob : float
-        probability of series of emitted data x      
+    c : float
+        list of scalings of filter coefficients      
     """
     xLen = len(x)
     kLen, dLen = np.shape(emitP)
     
-    # Initialize base cases (t == 0)
+    # Initialize
     f = np.zeros([xLen,kLen])
+    c = np.zeros(xLen)
+    
+    #base case
     f[0] = startP[:]*emitP[:,x[0]]
+    c[0] = np.sum(f[0])
+    f[0] *= 1/c[0]
+    
         
     # Sum: f_l(i+1) = e_l(x(i+1))Sum_k a_kl f_k(i-1)
     for k in range(1,xLen):
         f[k] = emitP[:,x[k]]*np.dot(transP,f[k-1])
+        c[k] = np.sum(f[k])
+        f[k] *= 1/c[k]
         
     prob = np.sum(f[-1])
         
-    return f, prob
+    return f, c, prob
     
-def backward(x, startP, transP, emitP):
+    
+def backward(x, startP, transP, emitP, cT = 1):
     """
     Dynamic programming algorithm for predicting probability of observed 
     emitted data series, given hidden model state.
@@ -199,6 +207,10 @@ def backward(x, startP, transP, emitP):
     
     # Initialize base cases (t == 0)
     b = np.ones([xLen,kLen])
+    c = np.ones(xLen)
+    
+    c[-1] = cT
+    b[-1] *= 1/c[-1]
         
     # Maximize: V_l(i+1) = e_l(x(i+1))max_k a_kl V_k(i)
     for k in range(xLen-2,-1,-1):
@@ -206,11 +218,14 @@ def backward(x, startP, transP, emitP):
             b[k] = np.dot(startP, emitP[:,x[k+1]]*b[k+1])
         else:
             b[k] = np.dot(transP,emitP[:,x[k+1]]*b[k+1])
+        c[k] = np.sum(b[k])
+        b[k] *= 1/c[k]
         
     # b_k(i) = sum_l (a_0l*e_l(x_1)*b_l(1)
     prob = np.sum(startP*emitP[:,x[0]]*b[0,:])
         
-    return b, prob
+    return b, c, prob
+    
     
 def frwd_bkwd(x, startP, transP, emitP):
     """
@@ -243,13 +258,14 @@ def frwd_bkwd(x, startP, transP, emitP):
     """
     xLen = len(x)
     kLen, dLen = np.shape(emitP)
-    f, probF = forward(x, startP, transP, emitP)
-    b, probB = backward(x, startP, transP, emitP)
+    f, cF, probF = forward(x, startP, transP, emitP)
+    b, cB, probB = backward(x, startP, transP, emitP, cF[-1])
     posterior = np.zeros([xLen, kLen])
     for k in range(xLen):
-        posterior[k] = f[k]*b[k]/probF
+        posterior[k] = f[k]*b[k]
         
     return f, b, probF, probB, posterior
+    
     
 def baum_welch(x, startP, transP, emitP, delta, maxIt = 100):
     """
@@ -276,112 +292,63 @@ def baum_welch(x, startP, transP, emitP, delta, maxIt = 100):
     emitP : ndarray
         kxd probability of emitting value from given hidden model state, k    
     """
+    #Stopping condition parameters
     counter = 0
     converged = False
+    
+    #Scale parameters
     xLen = len(x)
     kLen,dLen = np.shape(emitP)
+    
+    #Initialize arrays for updating transition probabilites    
     transOut = np.zeros(kLen)
     transIJ = np.zeros([xLen, kLen, kLen])
+    
+    #Begin iteration
     while(not converged and counter < maxIt):
         converged = True
         counter += 1
+        
+        #emission probability indicator function
         indicator = np.zeros([kLen, dLen])
+
+        #copies for tracking transition and emission probability changes
         transPOld = np.copy(transP)
         emitPOld = np.copy(emitP)
+        
+        #Estimate probability of observed and hidden states
         f, b, probF, probB, gamma = frwd_bkwd(x, startP, transP, emitP)
+
+        #Additional values for updating transition and emission probabilities
         transOut = np.sum(gamma[:-1],1)
         emitOut = np.sum(gamma,1)
+
+        #Update start probabilities
         startP = gamma[0]
+        
         for k in range(kLen):
+
+            #fill indicator function
             for m in range(dLen):
                 if x[k] == m:
                     indicator[k,m] = 1
+                    
+            #update emission probabilites
             emitP[k] = np.dot(gamma,indicator)/emitOut[:]
+            
+            #fill transition update values and update            
             for l in range(kLen):
                 transIJ[:,k,l] = f[k]*b[l]*transPOld[k,l]*emitPOld[:,x[l]]
                 transP[k,l] = np.sum(transIJ[k,l])/transOut[k]
-                
+        
+        #Check convergence of emission probabilities        
         if np.sum((emitP-emitPOld)**2)>delta:
             converged = converged and False
+            
+        #Check convergence of transition probabilities
         if np.sum((transP-transPOld)**2)>delta:
             converged = converged and False
         
     return startP, transP, emitP
     
-def viterbi_wiki(obs, states, startP, transP, emitP):
-    V = [{}]
-    path = {}
     
-    # Initialize base cases (t == 0)
-    for y in states:
-        V[0][y] = startP[y] * emitP[y][obs[0]]
-        path[y] = [y]
-    
-    # Run Viterbi for t > 0
-    for t in range(1, len(obs)):
-        V.append({})
-        newpath = {}
-
-        for y in states:
-            (prob, state) = max((V[t-1][y0] * transP[y0][y] * 
-                                emitP[y][obs[t]], y0) for y0 in states)
-            V[t][y] = prob
-            newpath[y] = path[state] + [y]
-
-        # Don't need to remember the old paths
-        path = newpath
-        
-    
-    # Return the most likely sequence over the given time frame
-    n = len(obs) - 1
-    
-    (prob, state) = max((V[n][y], y) for y in states)
-    return V,path[state]
-    #return (prob, path[state])
-    
-def fwd_bkw_wiki(x, states, a_0, a, e, end_st):
-    L = len(x)
- 
-    fwd = []
-    f_prev = {}
-    # forward part of the algorithm
-    for i, x_i in enumerate(x):
-        f_curr = {}
-        for st in states:
-            if i == 0:
-                # base case for the forward part
-                prev_f_sum = a_0[st]
-            else:
-                prev_f_sum = sum(f_prev[k]*a[k][st] for k in states)
- 
-            f_curr[st] = e[st][x_i] * prev_f_sum
- 
-        fwd.append(f_curr)
-        f_prev = f_curr
- 
-    p_fwd = sum(f_curr[k]*a[k][end_st] for k in states)
- 
-    bkw = []
-    b_prev = {}
-    # backward part of the algorithm
-    for i, x_i_plus in enumerate(reversed(x[1:]+(None,))):
-        b_curr = {}
-        for st in states:
-            if i == 0:
-                # base case for backward part
-                b_curr[st] = a[st][end_st]
-            else:
-                b_curr[st] = sum(a[st][l]*e[l][x_i_plus]*b_prev[l] for l in states)
- 
-        bkw.insert(0,b_curr)
-        b_prev = b_curr
- 
-    p_bkw = sum(a_0[l] * e[l][x[0]] * b_curr[l] for l in states)
- 
-    # merging the two parts
-    posterior = []
-    for i in range(L):
-        posterior.append({st: fwd[i][st]*bkw[i][st]/p_fwd for st in states})
- 
-    assert p_fwd == p_bkw
-    return fwd, bkw, posterior
