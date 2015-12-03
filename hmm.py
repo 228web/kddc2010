@@ -167,10 +167,12 @@ def forward(x, startP, transP, emitP):
     c[0] = np.sum(f[0])
     f[0] *= 1/c[0]
     
+    #Need transpose of transition probability matrix
+    transPT = transP.T    
         
     # Sum: f_l(i+1) = e_l(x(i+1))Sum_k a_kl f_k(i-1)
     for k in range(1,xLen):
-        f[k] = emitP[:,x[k]]*np.dot(transP,f[k-1])
+        f[k] = emitP[:,x[k]]*np.dot(transPT,f[k-1])
         c[k] = np.sum(f[k])
         f[k] *= 1/c[k]
         
@@ -194,6 +196,8 @@ def backward(x, startP, transP, emitP, cT = 1):
         kxk transition probabilities of hidden model, p_ij = P(i->j)
     emitP : ndarray
         kxd probability of emitting value from given hidden model state, k
+    cT : ndarray, optional
+        This can either be taken from the scaled forward pass or regenerated
     
     Returns
     -------
@@ -225,7 +229,7 @@ def backward(x, startP, transP, emitP, cT = 1):
     prob = np.sum(startP*emitP[:,x[0]]*b[0,:])
         
     return b, c, prob
-    
+
     
 def frwd_bkwd(x, startP, transP, emitP):
     """
@@ -263,6 +267,7 @@ def frwd_bkwd(x, startP, transP, emitP):
     posterior = np.zeros([xLen, kLen])
     for k in range(xLen):
         posterior[k] = f[k]*b[k]
+        posterior[k] *= 1/np.sum(posterior[k])
         
     return f, b, probF, probB, posterior
     
@@ -274,6 +279,8 @@ def baum_welch(x, startP, transP, emitP, delta, maxIt = 100):
     16-410-principles-of-autonomy-and-decision-making-fall-2010/lecture-notes/
     MIT16_410F10_lec21.pdf"
     
+    Inputs
+    ------    
     x : ndarray
         nx1 observed emitted data
     startP : ndarray
@@ -282,14 +289,16 @@ def baum_welch(x, startP, transP, emitP, delta, maxIt = 100):
         kxk transition probabilities of hidden model, p_ij = P(i->j)
     emitP : ndarray
         kxd probability of emitting value from given hidden model state, k
+    maxIt : ndarray, optional
+        maximum number of iterations through expectation maximization
     
     Returns
     -------
-    startP : ndarray
+    startOut : ndarray
         kx1 probabilities for starting in any hidden model state
-    transP : ndarray
+    transOut : ndarray
         kxk transition probabilities of hidden model, p_ij = P(i->j)
-    emitP : ndarray
+    emitOut : ndarray
         kxd probability of emitting value from given hidden model state, k    
     """
     #Stopping condition parameters
@@ -300,9 +309,14 @@ def baum_welch(x, startP, transP, emitP, delta, maxIt = 100):
     xLen = len(x)
     kLen,dLen = np.shape(emitP)
     
+    #Initialize output arrays
+    startOut = np.zeros(kLen)
+    emitOut = np.zeros([kLen,dLen])
+    transOut = np.zeros([kLen,kLen])
+    
     #Initialize arrays for updating transition probabilites    
-    transOut = np.zeros(kLen)
-    transIJ = np.zeros([xLen, kLen, kLen])
+    transDenom = np.zeros(kLen)
+    transIJ = np.zeros([xLen-1, kLen, kLen])
     
     #Begin iteration
     while(not converged and counter < maxIt):
@@ -310,7 +324,7 @@ def baum_welch(x, startP, transP, emitP, delta, maxIt = 100):
         counter += 1
         
         #emission probability indicator function
-        indicator = np.zeros([kLen, dLen])
+        indicator = np.zeros([xLen, dLen])
 
         #copies for tracking transition and emission probability changes
         transPOld = np.copy(transP)
@@ -320,35 +334,244 @@ def baum_welch(x, startP, transP, emitP, delta, maxIt = 100):
         f, b, probF, probB, gamma = frwd_bkwd(x, startP, transP, emitP)
 
         #Additional values for updating transition and emission probabilities
-        transOut = np.sum(gamma[:-1],1)
-        emitOut = np.sum(gamma,1)
+        transDenom = np.sum(gamma[:-1],0)
+        emitDenom = np.sum(gamma,0)
 
         #Update start probabilities
-        startP = gamma[0]
+        startOut = gamma[0]
         
-        for k in range(kLen):
-
-            #fill indicator function
-            for m in range(dLen):
-                if x[k] == m:
-                    indicator[k,m] = 1
-                    
-            #update emission probabilites
-            emitP[k] = np.dot(gamma,indicator)/emitOut[:]
+        #Build the indicator function
+        for m in range(dLen):
+            indicator[:,m] = np.array([1 if x[l]==m else 0 for l in range(xLen)])            
             
-            #fill transition update values and update            
-            for l in range(kLen):
-                transIJ[:,k,l] = f[k]*b[l]*transPOld[k,l]*emitPOld[:,x[l]]
-                transP[k,l] = np.sum(transIJ[k,l])/transOut[k]
+        for n in range(xLen-1):
+            for k in range(kLen):
+                #Fill in transition update values                   
+                transIJ[n,k,:] = f[n,k]*b[n+1,:]*transPOld[k,:]*emitPOld[:,x[n+1]]
+        
+        for k in range(kLen):                  
+            #update emission probabilities
+            emitOut[k] = np.dot(gamma[:,k],indicator)/emitDenom[k]
+            #update transition probabilities
+            transOut[k] = np.sum(transIJ[:,k,:],0)/transDenom[k]
+            #rescale transition probabilities since b scaling of probabilities 
+            #not exactly matched to f scalings
+            transOut[k] *= 1/np.sum(transP[k])
         
         #Check convergence of emission probabilities        
         if np.sum((emitP-emitPOld)**2)>delta:
             converged = converged and False
             
+        if converged:
+            print 'Converged! (in emission probs)'
+            
         #Check convergence of transition probabilities
         if np.sum((transP-transPOld)**2)>delta:
             converged = converged and False
+            
+        if converged:
+            print 'Converged!(in transition probs too!)'
         
-    return startP, transP, emitP
+    return startOut, transOut, emitOut
     
     
+def baum_welch_case(x, startP, transP, emitP, splitIds):
+    """
+    Baum-Welch algorithm, derived from MIT open courseware pdf as above, but 
+    applied on each iteration to a new segment of observation data. See 
+    "http://ocw.mit.edu/courses/aeronautics-and-astronautics/
+    16-410-principles-of-autonomy-and-decision-making-fall-2010/lecture-notes/
+    MIT16_410F10_lec21.pdf"
+    
+    Inputs
+    ------    
+    x : ndarray
+        nx1 observed emitted data
+    startP : ndarray
+        kx1 probabilities for starting in any hidden model state
+    transP : ndarray
+        kxk transition probabilities of hidden model, p_ij = P(i->j)
+    emitP : ndarray
+        kxd probability of emitting value from given hidden model state, k
+    splitIds : ndarray
+        array of indices over which to iterate baum welch on
+    
+    Returns
+    -------
+    startOut : ndarray
+        kx1 probabilities for starting in any hidden model state
+    transOut : ndarray
+        kxk transition probabilities of hidden model, p_ij = P(i->j)
+    emitOut : ndarray
+        kxd probability of emitting value from given hidden model state, k    
+    """    
+    #Scale parameters
+    kLen,dLen = np.shape(emitP)
+    
+    #Initialize output arrays
+    startOut = np.copy(startP)
+    transOut = np.copy(transP)
+    emitOut = np.copy(emitP)
+    
+    #Initialize arrays for updating transition probabilites    
+    transDenom = np.zeros(kLen)
+    
+    #Begin iteration
+    for l in range(len(splitIds)+1):
+        #x scale parameter changes each iteration
+        #Case dependent since observations split into different segments
+        if l == 0:
+            xLen = len(x[:splitIds[l]])
+        elif l == len(splitIds):
+            xLen = len(x[splitIds[l-1]:])
+        else:
+            xLen = len(x[splitIds[l-1]:splitIds[l]])
+        transIJ = np.zeros([xLen-1, kLen, kLen])
+
+        #emission probability indicator function
+        indicator = np.zeros([xLen, dLen])
+
+        #copies for tracking transition and emission probability changes
+        transPOld = np.copy(transOut)
+        emitPOld = np.copy(emitOut)
+        
+        #Estimate probability of observed and hidden states
+        #Case dependent since observations split into different segments
+        if l == 0:
+            f, b, probF, probB, gamma = frwd_bkwd(x[:splitIds[l]], 
+                                                  startOut, transOut, emitOut)
+        elif l == len(splitIds):
+            f, b, probF, probB, gamma = frwd_bkwd(x[splitIds[l-1]:], 
+                                                  startOut, transOut, emitOut)
+        else:
+            f, b, probF, probB, gamma = frwd_bkwd(x[splitIds[l-1]:splitIds[l]], 
+                                                  startOut, transOut, emitOut)
+        #Additional values for updating transition and emission probabilities
+        transDenom = np.sum(gamma[:-1],0)
+        emitDenom = np.sum(gamma,0)
+
+        #track whether start probability shows a problem
+        startPOld = np.copy(startOut)
+        
+        #Update start probabilities
+        startOut = gamma[0]
+        print startOut
+        if np.isnan(np.sum(startOut)):
+            return startPOld, transPOld, emitPOld
+        
+        #Build the indicator function
+        for m in range(dLen):
+            indicator[:,m] = np.array([1 if x[l]==m else 0 for l in range(xLen)])            
+            
+        for n in range(xLen-1):
+            for k in range(kLen):
+                #Fill in transition update values                   
+                transIJ[n,k,:] = f[n,k]*b[n+1,:]*transPOld[k,:]*emitPOld[:,x[n+1]]
+        
+        for k in range(kLen):                  
+            #update emission probabilities
+            emitOut[k] = np.dot(gamma[:,k],indicator)/emitDenom[k]
+            #update transition probabilities
+            transOut[k] = np.sum(transIJ[:,k,:],0)/transDenom[k]
+            #rescale transition probabilities since b scaling of probabilities 
+            #not exactly matched to f scalings
+            transOut[k] *= 1/np.sum(transOut[k])
+        
+    return startOut, transOut, emitOut
+    
+
+def rev_hmm_bw(y_output, pi, A, B,maxIters=1):
+    out_len = len(y_output)
+    states = np.shape(A)[0]
+    iters = 0
+    
+    c_s = np.zeros((out_len),float)
+    
+    alph = np.zeros((out_len,states),float)
+    bet = np.zeros((out_len,states),float)
+    
+    
+    while iters <= maxIters:
+    
+        #Alpha pass
+        for i in range(states):
+            alph[0,i] = pi[i]*B[i][y_output[0]]
+            c_s[0] = c_s[0] + alph[0,i]
+    
+        alph[0,:] = alph[0,:]/c_s[0]
+    
+        for t in range(1,out_len):
+            for i in range(states):
+                for j in range(states):
+                    alph[t,i] = alph[t,i] + alph[t-1,j]*A[j,i]
+                alph[t,i] = alph[t,i]*B[i][y_output[t]]
+                c_s[t] = c_s[t] + alph[t,i]
+    
+            alph[t,:] = alph[t,:]/c_s[t]
+    
+        #Beta pass
+        bet[out_len-1,:] = 1/c_s[out_len-1]
+    
+        for t in range(out_len-2,-1,-1):
+            for i in range(states):
+                for j in range(states):
+                    bet[t,i] = bet[t,i] + A[i,j]*B[j][y_output[t+1]]*bet[t+1,j]
+                bet[t,:] = bet[t,:]/c_s[t]
+    
+    
+        #Estimate gamma
+        gamma_2 = np.zeros((out_len,states,states),float)
+        gamma_1 = np.zeros((out_len,states),float)
+    
+        for t in range(out_len-1):
+            denom = 0.0
+    
+            for i in range(states):
+                for j in range(states):
+                    denom = denom + alph[t,i]*A[i,j]*B[j][y_output[t+1]]*bet[t+1,j]
+            for i in range(states):
+                for j in range(states):
+                    gamma_2[t,i,j] = alph[t,i]*A[i,j]*B[j][y_output[t+1]]*bet[t+1,j]/denom
+                    gamma_1[t,i] = gamma_1[t,i] + gamma_2[t,i,j]
+    
+        t = out_len-1
+        denom = 0.0
+        for i in range(states):
+            denom = denom + alph[t,i]
+        for i in range(states):
+            gamma_1[t,i] = alph[t,i]/denom
+    
+        #Re-estimate A,B,pi
+        for i in range(states):
+            pi[i] = gamma_1[0][i]
+    
+        for i in range(states):
+            for j in range(states):
+                numer = 0.0
+                denom = 0.0
+                for t in range(0,out_len - 1):
+                    numer = numer + gamma_2[t,i,j]
+                    denom = denom + gamma_1[t,i]
+                A[i,j] = numer/denom
+    
+        for i in range(states):
+            for j in range(2):
+                numer = 0.0
+                denom = 0.0
+                for t in range(0,out_len):
+                    if(y_output[t] == j):
+                        numer = numer + gamma_1[t,i]
+                    denom = denom + gamma_1[t,i]
+                B[i,j] = numer/denom
+    
+    
+        # Compute log prob
+        LogProb = 0
+        for i in range(out_len):
+            LogProb = LogProb + np.log(c_s[t])
+        LogProb = -LogProb
+    
+        print str(iters) + ' : ' + str(LogProb)
+        iters = iters + 1
+        
+    return alph, bet, c_s, pi, A, B
