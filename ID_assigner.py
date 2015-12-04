@@ -83,7 +83,7 @@ def unit_ID_assigner(raw_IDs):
         curr_ID = str(raw_IDs[k]).split(', ')
 
         if curr_ID[0] == '':
-            unit_list[k] = 0
+            unit_dict[k] = 0
         elif curr_ID[0] not in unit_dict.values():
             unit_dict.update({unit_dlen: curr_ID[0]})
             ID_list[k,0] = unit_dlen
@@ -92,7 +92,7 @@ def unit_ID_assigner(raw_IDs):
             ID_list[k,0] = unit_dict.values().index(curr_ID[0])
 
         if curr_ID[1] == '':
-            sect_list[k] = 0
+            sect_dict[k] = 0
         elif curr_ID[1] not in sect_dict.values():
             sect_dict.update({sect_dlen: curr_ID[1]})
             ID_list[k,1] = sect_dlen
@@ -184,7 +184,7 @@ def unit_ID_assigner_TEST(raw_IDs,uDict,sDict):
         curr_ID = str(raw_IDs[k]).split(', ')
 
         if curr_ID[0] == '':
-            unit_list[k] = 0
+            uDict[k] = 0
         elif curr_ID[0] not in uDict.values():
             uLen = uLen + 1
             uDict.update({uLen: curr_ID[0]})
@@ -193,7 +193,7 @@ def unit_ID_assigner_TEST(raw_IDs,uDict,sDict):
             ID_list[k,0] = uDict.values().index(curr_ID[0])
 
         if curr_ID[1] == '':
-            sect_list[k] = 0
+            sDict[k] = 0
         elif curr_ID[1] not in sDict.values():
             sLen = sLen + 1
             sDict.update({sLen: curr_ID[1]})

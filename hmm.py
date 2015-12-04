@@ -480,6 +480,67 @@ def baum_welch_case(x, startP, transP, emitP, splitIds):
     return startOut, transOut, emitOut
     
 
+def hmm_tester(x, startP, transP, emitP, idSplit):
+    """
+    This is a function to test the forward-backward algorithm in hmm.py. Splits 
+    by student and runs f-b on all steps up to n-1, then compares prediction to
+     nth step
+    
+    Inputs
+    ------
+    x : ndarray
+        training observation data, nx1
+    start : ndarray
+        starting probabilities, kx1
+    trans : ndarray
+        transition probabilities, kxk
+    emit : ndarray
+        emission probabilities, kxd
+    idSplit : list
+        indices to split observations on
+        
+    Returns
+    -------
+    rmse : ndarray
+        array of root-mean-square-error on prediction of first correct on next 
+        question compared to actual next data point result. This is currently 
+        not using the test data.
+    """
+    #number of students
+    numStud = len(idSplit)+1
+    
+    #Initialize array of predictions, probability of correct on next question
+    predicts = np.zeros(numStud)
+    
+    #Initialize array for rmse to compare to actual test data
+    rmse = np.zeros(numStud)
+    
+    #Run forward-backward on first student
+    f,b,probF,probB,post = frwd_bkwd(x[:idSplit[0]-1],
+                                         startP,transP,emitP)
+    #Predict and compute error on first student
+    predicts[0] = np.dot(emitP[:,2],np.dot(transP,post[-1]))
+    rmse[0] = np.sqrt((x[idSplit[0]-1,1]-predicts[0])**2)
+    
+    #Run forward-backward on last student
+    f,b,probF,probB,post = frwd_bkwd(x[idSplit[-1]:-1],
+                                         startP,transP,emitP)
+                                         
+    #Predict and compute error on last student
+    predicts[-1] = np.dot(emitP[:,2],np.dot(transP,post[-1]))
+    rmse[-1] = np.sqrt((x[-1,1]-predicts[-1])**2)
+    
+    #Run fwd-bkwd, predict, and compute error on remaining students
+    for k in range(numStud-2):
+        f,b,probF,probB,post = frwd_bkwd(
+                                    x[idSplit[k]:idSplit[k+1]-1],
+                                    startP,transP,emitP)
+        predicts[k] = np.dot(emitP[:,2],np.dot(transP,post[-1]))
+        rmse[k] = np.sqrt((x[idSplit[k]-1,1]-predicts[k])**2)
+        
+    return rmse
+    
+    
 def rev_hmm_bw(y_output, pi, A, B,maxIters=1):
     out_len = len(y_output)
     states = np.shape(A)[0]

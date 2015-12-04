@@ -56,8 +56,8 @@ def processor(data):
     -------
     xy_keys : list
         list of keys for data dictionary
-    xy_train : dict
-        dictionary of parsed data
+    dat_array : ndarray
+        parsed data dictionary now stored in numpy array
     tag_master : list
         list of tags from Knowledge Component data
     tag_array : ndarray
@@ -65,12 +65,16 @@ def processor(data):
     opp_array : ndarray
         array of opportunity count for each component in each question
     """
-    [xy_keys,xy_train] = ld.loader(data)
+    xy_keys,xy_train = ld.loader(data)
     
     # Process time strings to seconds
     for i in range(4):
         print 'Processing ' + time_strings[i]
         xy_train[time_strings[i]] = ld.convert_times(xy_train[time_strings[i]])
+        
+    # Convert Step Duration to seconds
+    xy_train['Step Duration (sec)'] = (xy_train['Step End Time']-
+                                        xy_train['Step Start Time'])
 
     # Dictionary of anonId and problem tags
     all_dicts = []
@@ -78,25 +82,46 @@ def processor(data):
     # Process string ids
     for i in range(2):
         print 'Processing ' + id_strings[i]
-        [xy_train[id_strings[i]],temp] = ida.ID_assigner(xy_train[id_strings[i]])
+        xy_train[id_strings[i]],temp = ida.ID_assigner(xy_train[id_strings[i]])
         all_dicts.append(temp)
 
-    [xy_train['Problem Hierarchy'],temp,temp2] = ida.unit_ID_assigner(
+    xy_train['Problem Hierarchy'],temp,temp2 = ida.unit_ID_assigner(
                                                 xy_train['Problem Hierarchy'])
     all_dicts.append(temp)
     all_dicts.append(temp2)
+    
+    #These are the variables I care about at the moment, add if want more - JGL
+    # 'Anon Student Id','Incorrects','Corrects','Problem View',
+    #'Correct Transaction Time','Correct First Attempt','Step Start Time',
+    #'First Transaction Time','Problem Hierarchy','Hints','Step End Time']
+    # KC(Default) and Opportunity(Default) separate arrays.
+    dat_array = np.empty([datLen,14])
+    dat_array[:,0] = xy_train['Anon Student Id']
+    dat_array[:,1] = xy_train['Problem Name']
+    dat_array[:,2] = xy_train['Problem Hierarchy']
+    dat_array[:,3] = np.array(xy_train['Incorrects'],dtype=int)
+    dat_array[:,4] = np.array(xy_train['Hints'],dtype=int)
+    dat_array[:,5] = np.array(xy_train['Corrects'],dtype=int)
+    dat_array[:,6] = np.array(xy_train['Correct First Attempt'],dtype=int)
+    dat_array[:,7] = np.array(xy_train['Problem View'],dtype=int)
+    dat_array[:,8] = xy_train['Step Start Time']
+    dat_array[:,9] = xy_train['First Transaction Time']
+    dat_array[:,10] = xy_train['Correct Transaction Time']
+    dat_array[:,11] = xy_train['Step End Time']
+    dat_array[:,12] = xy_train['Step Duration (sec)']
+    dat_array[:,13] = ld.check_final_answer(xy_train['Step Name'])
     
     # Process Knowledge components
     tag_master = tg.string_tags(xy_train['KC(Default)'])
 
     # Process opportunity
-    [tag_array,opp_array] = tg.tags_to_array(
+    tag_array,opp_array = tg.tags_to_array(
                                 xy_train['KC(Default)'],
                                 xy_train['Opportunity(Default)'],
                                 tag_master)
     
     
-    return xy_keys, xy_train, tag_master, tag_array, opp_array
+    return xy_keys, dat_array, tag_master, tag_array, opp_array
     
 def normalize(dataArray):
     length = len(dataArray)
@@ -223,7 +248,7 @@ def hmm_tester(x, start, trans, emit):
         rmse[k] = np.sqrt((data[idSplit[k]-1,1]-predicts[k])**2)
         
     return rmse
-
+"""
 error = np.zeros(20)
 for k in range(20):
     p = k*.005 +.85
@@ -236,4 +261,4 @@ for k in range(20):
     error[k] = 1-np.average(predictions)
     
 plt.scatter(np.arange(20),error)
-    
+"""
