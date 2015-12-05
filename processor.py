@@ -119,7 +119,7 @@ def processor_test(data, dicts, tags):
         list of keys for data dictionary
     dat_array : ndarray
         parsed data dictionary now stored in numpy array
-    tags : list
+    tags2 : list
         list of tags from Knowledge Component data
     tag_array : ndarray
         array of knowledge component presence in each question
@@ -162,13 +162,16 @@ def processor_test(data, dicts, tags):
     
     # Process Knowledge components
     newTags = tg.string_tags(xy_test['KC(Default)'])
-    tags.extend(newTags)
+    
+    #Better to make a copy of tags
+    tags2 = list(tags)
+    tags2.extend(newTags)
 
     # Process opportunity
     tag_array,opp_array = tg.tags_to_array(
                                 xy_test['KC(Default)'],
                                 xy_test['Opportunity(Default)'],
-                                tags)
+                                tags2)
     
     
-    return xy_keys, all_dicts, dat_array, tags, tag_array, opp_array
+    return xy_keys, all_dicts, dat_array, tags2, tag_array, opp_array
