@@ -356,7 +356,8 @@ def baum_welch(x, startP, transP, emitP, delta, maxIt = 100):
             transOut[k] = np.sum(transIJ[:,k,:],0)/transDenom[k]
             #rescale transition probabilities since b scaling of probabilities 
             #not exactly matched to f scalings
-            transOut[k] *= 1/np.sum(transP[k])
+            print np.sum(transOut[k])
+            transOut[k] *= 1/np.sum(transOut[k])
         
         #Check convergence of emission probabilities        
         if np.sum((emitP-emitPOld)**2)>delta:
@@ -375,7 +376,7 @@ def baum_welch(x, startP, transP, emitP, delta, maxIt = 100):
     return startOut, transOut, emitOut
     
     
-def baum_welch_case(x, startP, transP, emitP, splitIds):
+def baum_welch_case(x, startP, transP, emitP, splitIds, maxIt = None):
     """
     Baum-Welch algorithm, derived from MIT open courseware pdf as above, but 
     applied on each iteration to a new segment of observation data. See 
@@ -395,6 +396,10 @@ def baum_welch_case(x, startP, transP, emitP, splitIds):
         kxd probability of emitting value from given hidden model state, k
     splitIds : ndarray
         array of indices over which to iterate baum welch on
+    maxIt : int
+        maximum number of iterations to go through. If None, then goes through
+        full list in splitIds, otherwise up to minimum of maxIt and length of 
+        splitIds.
     
     Returns
     -------
@@ -416,16 +421,25 @@ def baum_welch_case(x, startP, transP, emitP, splitIds):
     #Initialize arrays for updating transition probabilites    
     transDenom = np.zeros(kLen)
     
+    #Check how many iterations to go through
+    if maxIt is None:
+        iters = len(splitIds)-1
+    else:
+        iters = np.min([maxIt, len(splitIds)-1])
+    
     #Begin iteration
-    for l in range(len(splitIds)+1):
+    for q in range(iters):
+        l = rand.choice(len(splitIds))        
+        
         #x scale parameter changes each iteration
-        #Case dependent since observations split into different segments
-        if l == 0:
-            xLen = len(x[:splitIds[l]])
-        elif l == len(splitIds):
-            xLen = len(x[splitIds[l-1]:])
+        #slightly case dependent still
+        if l == len(splitIds)-1:
+            xData = x[splitIds[l]:]
+            xLen = len(xData)
         else:
-            xLen = len(x[splitIds[l-1]:splitIds[l]])
+            xData = x[splitIds[l]:splitIds[l+1]]
+            xLen = len(xData)
+        
         transIJ = np.zeros([xLen-1, kLen, kLen])
 
         #emission probability indicator function
@@ -436,16 +450,8 @@ def baum_welch_case(x, startP, transP, emitP, splitIds):
         emitPOld = np.copy(emitOut)
         
         #Estimate probability of observed and hidden states
-        #Case dependent since observations split into different segments
-        if l == 0:
-            f, b, probF, probB, gamma = frwd_bkwd(x[:splitIds[l]], 
-                                                  startOut, transOut, emitOut)
-        elif l == len(splitIds):
-            f, b, probF, probB, gamma = frwd_bkwd(x[splitIds[l-1]:], 
-                                                  startOut, transOut, emitOut)
-        else:
-            f, b, probF, probB, gamma = frwd_bkwd(x[splitIds[l-1]:splitIds[l]], 
-                                                  startOut, transOut, emitOut)
+        f, b, probF, probB, gamma = frwd_bkwd(xData, startOut, transOut,
+                                              emitOut)
         #Additional values for updating transition and emission probabilities
         transDenom = np.sum(gamma[:-1],0)
         emitDenom = np.sum(gamma,0)
@@ -461,7 +467,8 @@ def baum_welch_case(x, startP, transP, emitP, splitIds):
         
         #Build the indicator function
         for m in range(dLen):
-            indicator[:,m] = np.array([1 if x[l]==m else 0 for l in range(xLen)])            
+            ind = np.where(xData==m,np.ones(xLen),np.zeros(xLen))  
+            indicator[:,m] = ind
             
         for n in range(xLen-1):
             for k in range(kLen):
@@ -479,6 +486,102 @@ def baum_welch_case(x, startP, transP, emitP, splitIds):
         
     return startOut, transOut, emitOut
     
+
+def rand_probs(numHid, numObs):
+    """
+    A quick method to generate a random set of probabilities (start, 
+    transition, and emission) for a given model of numHid hidden states and 
+    numObs observation states.
+    
+    Inputs
+    ------
+    numHid : int
+        number of hidden states
+    numObs : int
+        number of observed states
+        
+    Returns
+    -------
+    startP : ndarray
+        numHid x 1 start probabilities
+    transP : ndarray
+        numHid x numHid transition probabilities
+    emitP : ndarray
+        numHid x numObs probability of emitting value from given hidden model 
+        state
+    """
+    startP = rand.rand(numHid)
+    startP *= 1/np.sum(startP)
+    
+    transP = rand.rand(numHid, numHid)
+    emitP = rand.rand(numHid, numObs)
+    
+    for k in range(numHid):
+        emitP[k,k] += numObs
+        transP[k,k] += numHid
+        transP[k] *= 1/np.sum(transP[k])
+        emitP[k]  *= 1/np.sum(emitP[k])
+        
+    return startP, transP, emitP
+    
+
+def shotgun_bw(x, splitIds, numHid, numObs, iters = 100):
+    """
+    Given some observations feature, creates a hidden model of numHid hidden 
+    states and numObs observation states. Then creates start, transition, and 
+    emission probabilities for model by doing SGDBW (baum_welch_case) and 
+    averaging over iters number of iterations.
+    
+    Inputs
+    ------
+    x : ndarray
+        observation data
+    splitIds : list
+        list of where to split x for SGDBW
+    numHid : int
+        number of hidden states
+    numObs : int
+        number of observed states
+    iters : int, optional
+        
+    Returns
+    -------
+    spOut : ndarray
+        numHid x 1 start probabilities
+    tpOut : ndarray
+        numHid x numHid transition probabilities
+    epOut : ndarray
+        numHid x numObs probability of emitting value from given hidden model 
+        state
+    """
+    fact = 1/float(iters)
+    spOut = np.zeros(numHid)
+    tpOut = np.zeros([numHid, numHid])
+    epOut = np.zeros([numHid, numObs])    
+    
+    startP, transP, emitP = rand_probs(numHid, numObs)
+    
+    # average with multiple iterations of baum-welch over ~ten students
+    for k in range(iters):
+        sp, tp, ep = baum_welch_case(x, startP, transP, emitP, splitIds, 10)
+        spOut += sp*fact
+        tpOut += tp*fact
+        epOut += ep*fact
+    
+    #scale so that averaging give appropriate probability matrices
+    spOut = spOut/np.sum(spOut)
+    for k in range(numHid):
+        tpOut[k] *= 1/np.sum(tpOut[k])
+        epOut[k] *= 1/np.sum(epOut[k])
+        
+    return spOut, tpOut, epOut
+    
+    
+def predict_obs(x, student, row, startP, transP, emitP):
+    """
+    Predicts the next state of the observation variable given
+    """
+    return
 
 def hmm_tester(x, startP, transP, emitP, idSplit):
     """

@@ -138,9 +138,9 @@ def ID_assigner_TEST(raw_IDs,iDict):
         if curr_ID == '':
             ID_list[k] = 0
         elif curr_ID not in iDict.values():
-            dict_len = dict_len + 1
             iDict.update({dict_len: curr_ID})
             ID_list[k] = dict_len
+            dict_len = dict_len + 1
         else:
             ID_list[k] = iDict.values().index(curr_ID)
 
