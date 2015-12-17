@@ -55,7 +55,16 @@ One could then develop an HMM that shows improving performance with time, and fr
 
 A Hidden Markov Model is a time series where the states of the underlying system are unknown, or 'hidden'. For example, a dishonest casino could occasionally switch a fair die for a loaded die, and the goal of the unlucky gamblers is to determine when the casino has performed the switch. This involves determining (1) the probability a round of gambling has started with the fair or loaded die (the STARTING probability of each state), (2) the probability that the die are being switch (the TRANSITION probability of each state), and (3) the probability of each output from the die in each state (the EMISSION probability of each state). In the example above, a fair die would have an equal $\frac{1}{6}$ chance of emitting a 1,2,3,4,5,6, while the loaded die would have, say, a $\frac{1}{2}$ of rolling a 3.
 
-In the problem we are considering for this paper, we hope to develop hidden states relating to the student's comprehension - our hidden states might be "Unknowledgeable", "Learning", and "Comprehension". From these hidden states, we emit the probability of getting a problem first correct - higher for higher states of comprehension. A possible blueprint is shown in Table \ref{HMMprop}.
+In the problem we are considering for this paper, we hope to develop hidden states relating to the student's comprehension. This seems fitting, as we can see in Figure \ref{learning_curve}. This figure depicts the fraction of "First Corrects" as a function of the Opportunity - in other words, the plotted value for the x value of 1 would be the fraction of "First Corrects" the first time ALL students encounter a given skill, an x value of 2 the fraction of "First Corrects" the SECOND time all students encountera given skill, etc... As we can see, this plot rapidly increases, but then thresholds near a value of 0.8. This learning curve prompts us to develop a template HMM with three hidden states: "Unknowledgeable", "Learning", and "Comprehension". From these hidden states, we emit the probability of getting a problem first correct - higher for higher states of comprehension. A possible blueprint is shown in Table \ref{HMMprop}.
+
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=0.8\textwidth]{fracCORR_opp.png}
+\label{learning_curve}
+\end{center}
+\caption{Fraction of "First Corrects" as a function of opportunity, demonstrating a "learning curve".}
+\end{figure}
+
 
 \begin{table}[t]
 \begin{center}
@@ -73,7 +82,33 @@ UK & L & C & & UK & L & C & 0 & 1\\
 
 In the template HMM shown, we expect to start in the "Unknowledgeable" state, which has a 40\% chance of getting a 0. However, the student progresses to the "Learning" state as they progress, which hives us a higher chance (55\%) of getting the problem first correct. Finally, the student progresses to the terminal "Comprehension" state. The transition and emission probabilities in the template could be modified upwards or downwards depending on the speed at which the student learns.
 
-Rather than a hard coded HMM, we could use the Baum-Welch algorithm to develop transmission and emission matrices for each student and skill directly from the data.
+\subsection{Forward-Backward Test}
+A hidden Markov model (HMM) was initially implemented to track the learning curve of the individual students and predict subsequent observable features [1]-[2]. We assumed a hidden state tracked whether the student was knowledgeable or not at the time i in order to predict the probability of getting the problem i+1 correct on the first attempt. The model required the creation of a finite set of possible observations given the various preprocessed variables. 
+
+We first experimented with smoothing by applying the forward-backward algorithm to predict subsequent Correct First Attempt variables, using educated but rough assumptions about $\pi$, $T$, and $E$ of the hidden and observed states. The smoothed data then predicted a probability for observing the next Correct on First Attempt variable as a 1 [6].
+
+The output probabilities were greatly affected by underflows and many states were non-predictive. Our implementation of the forward-backward algorithm was improved by introducing rescalings to prevent underflows [5]. A few quick tests were performed stepping through different transition probabilites from the unknowledgeable state, see figure~\ref{fig:dunno}. This motivated us to attempt to train the HMM parameters. The implementation of the forward-backward algorithm was necessary for eventually predicting features for the test data.
+
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=0.8\textwidth]{dunno.png}
+\label{fig:dunno}
+\end{center}
+\caption{Root-Mean-Square-Error with increasing probability of staying at unknowledgeable state from problem to problem.}
+\end{figure}
+
+\subsection{Baum-Welch}
+With a working implementation of the forward-backward algorithm we then set to work developing the Baum-Welch algorithm. The algorithm is an implementation of Expectation Maximization. Current hidden variable states are estimated through the forward-backward algorithm and then state transitions and observations are counted to update $\pi$, $T$, and $E$. The algorithm is typically meant to be employed over long time series of data which our data sets did not necessarily provide. Instead we implemented a Stochastic Gradient Descent type update, by iterating over short time series of multiple students and averaging, see ~\ref{fig:sgdbw}.
+
+With the Baum-Welch algorithm, we developed a set of general model parameters ($\pi$, $T$, and $E$) which were applied in the forward-backward algorithm on each student to predict features in the test data. In a sense, this served as our model of how a student learns through time, and the individual time series of student questions updated model of how much the student knew at a given time.
+
+\begin{figure}[h]
+\begin{center}
+	\includegraphics[width=0.8\textwidth]{bwConv3a.png}
+	\label{fig:sgdbw}
+\end{center}
+\caption{Example of convergence of Baum-Welch algorithm over 100 students}
+\end{figure}
 
 \subsection{Limitations to the Naive Approach}
 
@@ -98,7 +133,6 @@ After running our decision tree to bin our data based on the "Step Duration" (ro
 
 
 \begin{table}[t]
-\caption{Decision Tree of our Data}\label{dtree}
 \begin{center}
 \begin{tabular}{c|c|c|c|c|c|c|c}
 \multicolumn{8}{c}{Opportunity}\\
@@ -112,6 +146,7 @@ Empty & 0.918 & 0.543 & 0.665 & 0.723 & 0.698 & 0.754 & 0.783\\
 60 $>$ ... & 0.562 & 0.257 & 0.300 & 0.309 & 0.335 & 0.393 & 0.387\\
 \end{tabular}
 \end{center}
+\caption{Decision Tree of our Data}\label{dtree}
 \end{table}
 
 As we can see in Table \ref{dtree}, the fraction of correct values generally increases with "Opportunity" and decreases with "Step Duration" the outliers are the empty values, which are tiny fractions of the entire dataset ($\sim$1\%).
@@ -120,34 +155,49 @@ Before we move on the presenting our results with the decision tree, we must als
 
 \section{Results}
 
-Given the reported entropies of the above section, the "Step Duration" is highly related to "Correct First Attempt", and while not given in the test subset of the data, provides enough output classes where a trained HMM could be robust enough to successfully train on the training data without the substantial overfit seen when trying to predict "Correct First Attempt" directly.
+Given the reported entropies of the above section, the "Step Duration" is highly related to "Correct First Attempt", and while not given in the test subset of the data, provides enough output classes where a trained HMM could be robust enough to successfully train on the training data without the substantial overfit seen when trying to predict "Correct First Attempt" directly. As described in Section \ref{HMM_sec}, we use the Baum-Welch algorithm to train on the binned step duration. Similar to the learning curve in Figure \ref{learning_curve}, the "Step Duration" as a function of "Opportunity" is plotted in Figure \ref{stepdur}. As we can see, the "Step Duration" decreases as the student progresses. We perform Stochastic Gradient Descent to run the Baum-Welch algorithm by picking 10 random students to fine tune our start, transition, and emission matrices.
 
 \begin{figure}[h]
 \begin{center}
-\includegraphics[width=0.8\textwidth]{fracCORR_opp.png}
-\label{learning_curve}
+\includegraphics[width=0.8\textwidth]{stepdur_opp.png}
+\label{stepdur}
 \end{center}
-\caption{Fraction of "First Corrects" as a function of opportunity, demonstrating a "learning curve".}
+\caption{"Step Duration" as a function of opportunity.}
 \end{figure}
 
 
-OUTLINE:
-We train on step duration
+\begin{table}[t]
+\begin{center}
+\begin{tabular}{ccc|c|ccc|c|ccc}
+\multicolumn{3}{c}{$\pi$} && \multicolumn{3}{c}{$T$} && \multicolumn{3}{c}{$E$}\\
+S1 & S2 & S3 & & S1 & S2 & S3 && S1 & S2 & S3\\
+& & & S1 & 0.096 & 0.654 & 0.25  &Empty & 0.010 & 0.0 & 0.0\\
+0.56 & 0.328 & 0.112 & S2 & 0.004 & 0.972 & 0.024 &0-15s& 0.105 & 0.594 & 0.19\\
+&&& S3 & 0.007 & 0.6 & 0.392 &15-30s& 0.202 & 0.149 & 0.595\\
+&&&&&&&30-45s & 0.196 & 0.088 & 0.126\\
+&&&&&&&45-60s & 0.045 & 0.051 & 0.014\\
+&&&&&&&$>$60s& 0.442 & 0.122 & 0.067\\
+\end{tabular}
+\caption{Actual results from performing Stochastic Gradient Descent on the Baum-Welch algorithm.}\label{HMMprop}
+\end{center}
+\end{table}
 
-Some math describing what we do
-...
+In contrast to the template HMM shown in Table \ref{HMMprop}, we see from our Transmission matrix that we have a superfluous State 1 (the probabilities we transition to this state are shown in the first column of matrix $T$; all values are less than 0.1), and a terminal state 2. Comparing states 2 and 3, we see that it is more likely to have a shorter step duration in state 2 than in state 3. Apparently, state 3 is our "Unknowledgeable" state, while state 2 is our "Comprehension" state.
 
+We then plug the output $\pi$, $T$, $E$ into the forward-backward algorithm to obtain $\gamma$, the probability we are in any of our states at a particular point in our history:
+$$
+\gamma_t(i) = \frac{\alpha_t(i)\beta_t(i)}{P(O|\lambda)}
+$$
+for all states $i$. Recall that $\alpha_t(i)$ measures the probability we are in state $i$ using data up to time $t$, while $\beta_t(i)$ measures the probability we are in state $i$ using date after time $t$, all normalized by the probability of the observed sequence given our values in $\pi$, $E$, and $T$. Thus, for any time point, we can determine the probability that an average student is either in the S3 ("Unknowledgeable") or S2 ("Comprehension") state.
 
 
 \section{Conclusions}
 
 The project gave us several insights into time allotment for a real-world type problem. Much of our time was spent trying to build these algorithms ourselves and test our functions which slowed down the process, but proved invaluable for comprehension of the methods and was somewhat fun. Additionally, a significant portion of the time was spent trying to understand the types of cases we could expect to see in the test data. We did not initially expect to find non-sequential questions in the test data relative to the training data, nor did we expect for their to be untracked students. So, a lot of time had to be allocated to parsing the data into a workable format, dealing with exceptions, and adjusting our plans for applying our HMM and decision tree. However, with all of that in mind, the vague strategy we started with was still able to be developed into a fitting plan.
 
-The most important conclusion is that our goal in this situation where the test data does not exhibit all of the features of the training data is to generate reasonable features for the test data. In that way, an algorithm trained on the training data features can be applied to the test data. At the time of milestone our approach with the HMM was to generate an output at a subsequent time step of Correct First Attempt or not, which only yielded a guess slightly better than random. However, the best final results used the training data and HMM to predict a feature for the test data, Step Duration, that we knew to be fairly well correlated with the Correct First Attempt variable. We expect that generating more features in the test data would have yielded even better results. 
+We garnered one general idea applicable to other machine learning problems. In the situation where the test data has missing features an effective method is to generate similar features for the test data. In that way, an algorithm trained on the training data features can be applied to the test data. At the time of milestone our approach with the HMM was to generate an output at a subsequent time step of Correct First Attempt, which only yielded a guess slightly better than random. However, the best final results used the training data and HMM to predict a feature for the test data, Step Duration, that we knew to be fairly well correlated with the Correct First Attempt variable. We expect that generating more features in the test data would have yielded even better results. 
 
-Additional ideas were proposed for extending the effectiveness of our methods. While our greatest succes came from predicting already tracked features of the data, e.g. step duration, we had also written a Viterbi algorithm which would have allowed us to track latent variables in the model between the training and test data. We also somewhat underutilized the ''Knowledge Component skills'' provided due to the sparsity of individual skills over multiple students. These ideas required more iterations of retraining and validating of the decision tree and HMM on components.
-
-
+A couple additional ideas were proposed for extending the effectiveness of our methods. While our greatest succes came from predicting already tracked features of the data, e.g. step duration, we had also written a Viterbi algorithm which would have allowed us to track latent variables in the model between the training and test data. In fact, with the implementation of the Baum-Welch algorithm, had the freedom to generate many HMM's with different numbers of hidden states and  different combinations of observables. So, multiple numbers of models with varying hidden variable states could all have been generated and tracked over the training and test data. Interestingly, we see that through such an implementation, we lose the interpretations of the hidden variable states. A two or three state hidden variable no longer necessarily corresponds to student knowledge for example. We also somewhat underutilized the ''Knowledge Component skills'' provided due to the sparsity of individual skills over multiple students. These ideas ultimately required many more iterations of retraining and validating of the decision tree and HMM on components.
 
 
 \subsubsection*{Acknowledgments}
@@ -165,5 +215,9 @@ Author JGL acknowledges Maximo Q. Menchaca for his quality work on the project d
 [3] Lee, J.G.\& Menchaca, M.Q. (2015) Student Performance Prediction Using Hidden Markov Models and Decision Tree. CSE 546 Autumn 2015 Project Proposal, 1 pp., Unpublished.
 
 [4] Guestrin, C. (2014) \url{ https://courses.cs.washington.edu/courses/cse546/14au/slides/decision-trees-annotated.pdf}
+
+[5] Stamp, M. (2015) A Revealing Introduction to Hidden Markov Models \url{https://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf}
+
+[6] Lee, J.G.\& Menchaca, M.Q. (2015) Employing an HMM and Decision Tree to Predict Student Behavior. CSE 546 Autumn 2015 Milestone, 3 pp., Unpublished.
 
 \end{document}
