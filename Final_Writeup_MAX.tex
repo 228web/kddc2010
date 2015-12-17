@@ -36,7 +36,6 @@ Department of Physics \\
 
 \begin{document}
 
-
 \maketitle
 
 \begin{abstract}
@@ -91,38 +90,45 @@ H(Y) = -\sum_{i=1}^k P(Y = y_i) log P(Y = y_i),
 $$
 where we sum over all the classes $y_i$ of the output/dependent variable $Y$. For the smallest data set we have, Algebra I 2005-2006 (the training data set has about 800,000 members), the base entropy is $H(Y) = 0.79$. Do any of the independent variables provide an information gain for "Correct First Attempt"? Obviously, variables like "Hints" or "Incorrects" will be poor predictors of "Correct First Attempt", as only zero values of the former can lead to the latter being 1.
 
-WILL JOHN BE ADDING THINGS ABOUT BINNING IN THE INTRO?
-
 It is also likely that the Problem Hierarchy - the Unit, Section, and Name - could influence the likelihood of a student achieving a correct on the first try. Surely, some problems are more difficult than others. In our smallest dataset, there are 33 unique problem units, and 136 problem sections. Overview of the variance of the fraction of "Correct First Attemps" for the unique problem units and sections reveals a spread ranging from 0.68 to 0.81. We have chosen to NOT split on these variables, for a variety of reasons. First, they would partition the dataset into smaller chunks, increasing the complexity of the decision tree, while reducing the number of data samples with which to train our algorithm. Second, as mentioned above, our dataset is sparse - not all students see all units and sections. Employing the problem information to inform our algorithm may be worth the effort if it comes at the payoff of much better prediction. However, this would be most effective as an added ingredient to an already developed robust algorithm. Since we are interested in DEVELOPING a model of a learning curve, and given our time constraints during the quarter, other variables proved much more effective in developing our HMM.
 
-These variables were the "Opportunity" and "Step Duration". The "Step Duration" describes the amount of time a student spends on a problem, while the "Opportunity" describes the number of times the student has encountered the skill relevant for the step. This latter value can approach values over 1000 (for skills as simple as "Entering a Given"), and there can sometimes be numerous skills associated with a given data point. Because both the "Opportunity" and "Step Duration" can take on a very large range of values, we have binned both. Bins of [0,1-5,5-10,10-15,$>$15] encounters and [0,1-15,15-30,30-45,45-60, $>$60] sec, respectively, seem to provide acceptable results. (The first bin, 0, for both variables indicates a data point where that value has not been provided. With these two binned variables, we see that the entropy after splitting on these variables is $H(Y|\textbf{Opportunity}) = 0.78$ and $H(Y|\textbf{Step Duration}) = 0.62$. Surprisingly, it appears that the binned "Opportunity" provides almost no information gain! However, we can see that splitting on the "Step Duration" can provide a lot of information on how the student performs. Inspection of the data indicates that the shorter the step duration, the better the student does. This makes intuitive sense - if a student spends more time on a problem, they likely are having trouble with the material.
+These variables were the "Opportunity" and "Step Duration". The "Step Duration" describes the amount of time a student spends on a problem, while the "Opportunity" describes the number of times the student has encountered the skill relevant for the step. This latter value can approach values over 1000 (for skills as simple as "Entering a Given"), and there can sometimes be numerous skills associated with a given data point. Because both the "Opportunity" and "Step Duration" can take on a very large range of values, we avoid destroying the advantages of a decision tree by binning both variables. Bins of [0,1-5,5-10,10-15,$>$15] encounters and [0,1-15,15-30,30-45,45-60, $>$60] sec, respectively, seem to provide acceptable results. (The first bin, 0, for both variables indicates a data point where that value has not been provided. With these two binned variables, we see that the entropy after splitting on these variables is $H(Y|\textbf{Opportunity}) = 0.78$ and $H(Y|\textbf{Step Duration}) = 0.62$. Surprisingly, it appears that the binned "Opportunity" provides almost no information gain! However, we can see that splitting on the "Step Duration" can provide a lot of information on how the student performs. Inspection of the data indicates that the shorter the step duration, the better the student does. This makes intuitive sense - if a student spends more time on a problem, they likely are having trouble with the material.
 
-Before we move on the presenting our results with the decision tree, we must also note more preprocessing of the data. For training steps that have more than one skill (and therefore opportunity) associated with them, we assign the smaller opportunity value as the "Opportunity" for this step - we would expect that the most unfamiliar skill would have the greatest bearing on the student's performance.
+After running our decision tree to bin our data based on the "Step Duration" (root variable of tree) and "Opportunity" (the branch variable of the tree), we obtain the decision tree shown in Table \ref{dtree}. Note we keep the raw probablities in the tree from the test data for each class, rather than rounding:
 
-PUT D TREE HERE - EDIT THIS
+
 \begin{table}[t]
-\caption{Decision tree application to test data}
+\caption{Decision Tree of our Data}\label{dtree}
 \begin{center}
 \begin{tabular}{c|c|c|c|c|c|c|c}
-\multicolumn{8}{c}{Root = Opportunity}\\
-Duration & Empty & 1 $>$ 5 & 5 $>$ 15 & 15 $>$ 25 & 25 $>$ 50 & 50 $>$ 100 & 100 $>$ ...\\
-& (202669) & (66137) & (113527) & (73460) & (109617) & (105889) & (138395)\\
+\multicolumn{8}{c}{Opportunity}\\
+Duration & Empty & 1 $>$ 5 & 5 $>$ 10 & 10 $>$ 15 & 15 $>$ 25 & 25 $>$ 60 & 60 $>$ ...\\
 \hline
-empty (3268) & 0/1 (1912) & 0/0 (245) & 0/0(301) & 0/0 (139) & 0/0 (222) & 0/0 (265) & 0/0 (184)\\
-1 $>$ 15 (471730) & 1/0 (118157) & 1/0  (28966) & 1/0 (61024) & 1/0 (41988) & 1/0 (64766) & 1/0 (65678) & 1/0 (91151)\\
-15 $>$ 30 (148490) & 0/0 (36914) & 0/0  (13167) & 0/0 (21686) & 0/0 (13453) & 0/0 (20447) & 0/0 (19060) & 0/0 (23763)\\
-30 $>$ 45 (65065) & 0/0 (17430) & 0/0  (6766) & 0/0 (9919) & 0/0 (5941) & 0/0 (8564) & 0/0 (7586) & 0/0 (8859)\\
-45 $>$ 60 (35206) & 0/0 (9043) & 0/0 (4086) & 0/0 (5599) & 0/0 (3426) & 0/0 (4582) & 0/0 (4035) & 0/0 (4435)\\
-60 $>$ ... (85935) & 0/0 (19213) & 0/0 (12907) & 0/0 (14998) & 0/0 (8513) & 0/0 (11036) & 0/0 (9265) & 0/0 (10003)\\
+Empty & 0.918 & 0.543 & 0.665 & 0.723 & 0.698 & 0.754 & 0.783\\
+1 $>$ 15 & 0.888 & 0.872 & 0.910 & 0.913 & 0.922 & 0.920 & 0.939\\
+15 $>$ 30 & 0.731 & 0.621 & 0.663 & 0.672 & 0.667 & 0.668 & 0.640\\
+30 $>$ 45 & 0.684 & 0.460 & 0.516 & 0.512 & 0.518 & 0.537 & 0.516\\
+45 $>$ 60 & 0.639 & 0.374 & 0.419 & 0.450 & 0.442 & 0.494 & 0.471\\
+60 $>$ ... & 0.562 & 0.257 & 0.300 & 0.309 & 0.335 & 0.393 & 0.387\\
 \end{tabular}
 \end{center}
 \end{table}
 
-\section{Resuts}
+As we can see in Table \ref{dtree}, the fraction of correct values generally increases with "Opportunity" and decreases with "Step Duration" the outliers are the empty values, which are tiny fractions of the entire dataset ($\sim$1\%).
+
+Before we move on the presenting our results with the decision tree, we must also note more preprocessing of the data. For training steps that have more than one skill (and therefore opportunity) associated with them, we assign the smaller opportunity value as the "Opportunity" for this step - we would expect that the most unfamiliar skill would have the greatest bearing on the student's performance.
+
+\section{Results}
 
 Given the reported entropies of the above section, the "Step Duration" is highly related to "Correct First Attempt", and while not given in the test subset of the data, provides enough output classes where a trained HMM could be robust enough to successfully train on the training data without the substantial overfit seen when trying to predict "Correct First Attempt" directly.
 
-A FIGURE OF THE FRAC OF FIRST CORRECTS AS WE PROGRESS THROUGH HISTORY
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=0.8\textwidth]{fracCORR_opp.png}
+\label{learning_curve}
+\end{center}
+\caption{Fraction of "First Corrects" as a function of opportunity, demonstrating a "learning curve".}
+\end{figure}
 
 
 OUTLINE:
@@ -133,56 +139,20 @@ Some math describing what we do
 
 
 
+\section{Conclusions}
+
+The project gave us several insights into time allotment for a real-world type problem. Much of our time was spent trying to build these algorithms ourselves and test our functions which slowed down the process, but proved invaluable for comprehension of the methods and was somewhat fun. Additionally, a significant portion of the time was spent trying to understand the types of cases we could expect to see in the test data. We did not initially expect to find non-sequential questions in the test data relative to the training data, nor did we expect for their to be untracked students. So, a lot of time had to be allocated to parsing the data into a workable format, dealing with exceptions, and adjusting our plans for applying our HMM and decision tree. However, with all of that in mind, the vague strategy we started with was still able to be developed into a fitting plan.
+
+The most important conclusion is that our goal in this situation where the test data does not exhibit all of the features of the training data is to generate reasonable features for the test data. In that way, an algorithm trained on the training data features can be applied to the test data. At the time of milestone our approach with the HMM was to generate an output at a subsequent time step of Correct First Attempt or not, which only yielded a guess slightly better than random. However, the best final results used the training data and HMM to predict a feature for the test data, Step Duration, that we knew to be fairly well correlated with the Correct First Attempt variable. We expect that generating more features in the test data would have yielded even better results. 
+
+Additional ideas were proposed for extending the effectiveness of our methods. While our greatest succes came from predicting already tracked features of the data, e.g. step duration, we had also written a Viterbi algorithm which would have allowed us to track latent variables in the model between the training and test data. We also somewhat underutilized the ''Knowledge Component skills'' provided due to the sparsity of individual skills over multiple students. These ideas required more iterations of retraining and validating of the decision tree and HMM on components.
 
 
 
-The duration of time a student spends on a particular problem and the number of times a student encounters a given skill seem to be good predictors of the ability of a student to answer correctly, as the former provides strong information gains, while the latter correlates well with student performance. Since we are not given the step duration in the test set, we use our HMM to predict this.
-
-In conjunction, a decision tree is built from the training dataset using these two variables to predict “Correct First Attempt”. The generated probabilities from the HMM were used to predict likely states in the test set, and a decision tree was then used to predict the probability of a correct first attempt in the test set.
-
-
-\section{Data preprocessing}
-The data comes in the format of records from the tutoring program, 19 variables. These variables include Problem Section, Unit, Name, time spent on the problem, hint queries, and number of times a student encounters a particular skill. Student IDs and problem information were converted from strings to integers, while dates were converted to epoch time. Because multiple skills could be present for an individual problem, Knowledge Component (KC) skills were converted to a matrix with component values set to one if the skill is present in the problem and zero otherwise. Similarly the associated Opportunity variable was converted to a matrix but with component values set to the opportunity number if the skill is present in the problem and zero otherwise.
-
-\section{Decision Tree}
-\subsection{Implementation}
-The goal of a decision tree is to partition the data into classes that give low entropy organization of the dependent variable. Some variables lend themselves better to splitting then others. For example, one would expect the variable 'Opportunity' to be a good variable to split on - the more times a student encounters a given variable, the better they should do. Another possibility is 'Step Duration' - the longer a student spends on a given step, the more trouble they may be having and the less likely it is they will do well. On the other hand, the variable 'Incorrects' would be an extremely poor variable to split on - if a student achieved ANY incorrects for a given step, obviously they must not have gotten their first attempt correct!
-
-\subsection{Test, Results}
-We implement a preliminary decision tree using the two variables 'Step Duration' and 'Opportunity'. The following two tables depict the two possible trees with this implementation. The parenthetical values is the count in each class - and Root = Opportunity/Root = Step Duration give the predicted y value.
-
-
-
-
-The raw entropy of the data is $H(Y)$= 0.78, and after applying our decision tree, we obtain similar values either way - $H(Y|\bf{Opp}|\bf{Duration}) \approx H(Y|\bf{Duration}|\bf{Opp})$ = 0.65. However, we can see that the predicted values are much different either way - there is just one positive prediction if we use a root of Step Duration - when the opportunity is empty! This indicates some lack of robustness in choosing bins for the opportunity, which can be confirmed by changing these bins (not shown). On the other hand, we see that a small step duration leads to positive prediction robustly across all opportunity classes.
-
-Applying this binning to create predicted $y_{pred}$ = 'Correct First Attempt' leads to an RMSE of $||y - y_{pred}||_2$ = .284 for Root = Opportunity and = .45 for Root = Step Duration across the training set. We cannot apply the decision tree on its own to the test set, as the step duration is not given.
-
-\section{Hidden Markov Model}
-\subsection{Implementation}
-A hidden Markov model (HMM) was implemented to track the learning curve of the individual students [1]-[2]. We assume our hidden state is whether the student is knowledgeable or not at the time i in order to predict the probability of getting the problem i+1 correct on the first attempt. The model requires the creation of a finite set of possible observations given the various preprocessed variables. 
-
-\subsection{Test}
-We have experimented with smoothing by applying the forward-backward algorithm to predict subsequent Correct First Attempt variables. Educated but rough assumptions were made about start, transition, and emission probabilities of the hidden and observed states. Observations at a given problem are split into three states based on (1) whether their first attempt on any problem was correct; (2) if not, whether they at least had more corrects than incorrects over their entire observation history, and (3) otherwise. The students are assumed to start in the unknowledgeable state with 99\% probability. The smoothed data then predicts a probability for observing the next Correct on First Attempt variable as a 1.
-
-\subsection{Results}
-The output probabilities are plagued by underflows, where the probability of being in a particular hidden model state after many steps is too small to be tracked. A simple fix is to try implementing using an arbitrary floating point python package like mpmath. Another possibility is trying to implement the forward/backward algorithm with log probabilities instead [2]. Currently, underflow errors are treated as non-predictive, a state that currently applies to approximately a third of students, but predictive states show a root-mean-square-error of .477. A few quick tests were performed stepping through different transition probabilites from the unknowledgeable state, see figure~\ref{fig:dunno}.
-
-\begin{figure}[h]
-\begin{center}
-\includegraphics[width=0.8\textwidth]{dunno.png}
-\label{fig:dunno}
-\end{center}
-\caption{Root-Mean-Square-Error with increasing probability of staying at unknowledgeable state from problem to problem.}
-\end{figure}
-
-\section{Future Work}
-
-The decision tree on its own cannot be used on the test data, as very few variables are given (just the student, problem, opportunity, tested skill). We hope to implement the Baum-Welch algorithm to train our HMM transition and emission probabilities instead of the biased guesses used above. Additionally, we intend to implement these hidden Markov model algorithms not just on each student but for each skill a student encounters, to take advantage of data given in the test set. The decision tree will be implemented to further inform the transition probabilities used in the HMM. Variables deemed important in predicting a student's correct first attempt can be observed in test data and used to tune transition and emission probabilities - and finally, the time of transition to mastering a particular skill can be compared with the times in the test data to predict the student's correct attempts.
 
 \subsubsection*{Acknowledgments}
 
-Author MM acknowledges John G. Lee for his quality work thus far on the project described above. Author JL acknowledges Maximo Q. Menchaca for his quality work thus far on the project described above.
+Author JGL acknowledges Maximo Q. Menchaca for his quality work on the project described above. Author MQM acknowledges John G. Lee for his quality work on the project described above.
 
 \subsubsection*{References}
 
